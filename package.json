@@ -1,0 +1,51 @@
+{
+  "name": "@ccsk/cli",
+  "version": "1.0.0",
+  "description": "Claude Code Starter Kit CLI — scaffold Claude-ready projects in one command",
+  "type": "module",
+  "bin": {
+    "ccsk": "./bin/ccsk.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepare": "tsc",
+    "start": "node ./bin/ccsk.js",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "claude-code",
+    "starter-kit",
+    "scaffold",
+    "cli",
+    "ai-coding"
+  ],
+  "author": "Crystal D.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imnortheastt/ccsk-cli.git"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.4.0",
+    "commander": "^14.0.3",
+    "execa": "^9.5.1",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
