@@ -8,9 +8,9 @@
  * Banks + price are loaded from Supabase via payment-config so the operator can edit
  * them without redeploying the CLI.
  */
-import qrcode from 'qrcode-terminal';
 import { QRPay } from 'vietnam-qr-pay';
 import { log } from '../util/log.js';
+import { renderQrQuadrant } from '../util/qr-quadrant.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import { getPaymentConfig } from './payment-config.js';
 const SUPABASE_URL = 'https://qorrssuqkblahzzlonhz.supabase.co';
@@ -46,11 +46,7 @@ function buildVietQRUrl(bank, amount, memo) {
     return `https://api.vietqr.io/image/${bank.bin}-${bank.account_number}-i7ISzDh.jpg?${params.toString()}`;
 }
 function renderQrLines(content) {
-    let out = '';
-    qrcode.generate(content, { small: true }, (qr) => {
-        out = qr;
-    });
-    return out.split('\n').filter((line) => line.length > 0);
+    return renderQrQuadrant(content);
 }
 function padRight(line, width) {
     if (line.length >= width)

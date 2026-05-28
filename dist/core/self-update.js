@@ -11,6 +11,14 @@ import { fileURLToPath } from 'node:url';
 import { execa } from 'execa';
 import { log } from '../util/log.js';
 const PKG_NAME = '@ccsk/cli';
+/**
+ * Minimum CLI version users are allowed to self-install via `ccsk update <ver>`.
+ * Older releases shipped behaviour that is now considered broken or incompatible
+ * with the current kit repositories (stale kit cache, bad settings.local.json,
+ * missing license model, oversized payment QRs). Pinning the floor here keeps
+ * users from accidentally downgrading into those known-bad states.
+ */
+const MIN_SUPPORTED_VERSION = '1.0.6';
 function readCurrentVersion() {
     try {
         const here = fileURLToPath(new URL('.', import.meta.url));
@@ -55,10 +63,41 @@ function isValidVersion(v) {
     // Accept "latest", "next", semver-ish strings, dist-tags.
     return /^[a-zA-Z0-9._-]+$/.test(v);
 }
+/**
+ * Parses a strict `MAJOR.MINOR.PATCH` semver into a numeric tuple.
+ * Returns null for dist-tags ("latest", "next") or any non-strict form,
+ * which callers should treat as "not subject to the version floor".
+ */
+function parseSemverTriplet(v) {
+    const m = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(v);
+    if (!m)
+        return null;
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+function isBelowMinSupported(requested) {
+    const reqTriplet = parseSemverTriplet(requested);
+    if (!reqTriplet)
+        return false; // dist-tags pass through
+    const minTriplet = parseSemverTriplet(MIN_SUPPORTED_VERSION);
+    if (!minTriplet)
+        return false;
+    for (let i = 0; i < 3; i++) {
+        if (reqTriplet[i] < minTriplet[i])
+            return true;
+        if (reqTriplet[i] > minTriplet[i])
+            return false;
+    }
+    return false; // equal → allowed
+}
 export async function runSelfUpdate(opts) {
     const requested = (opts.version || 'latest').trim();
     if (!isValidVersion(requested)) {
         throw new Error(`invalid version: ${requested}`);
+    }
+    if (isBelowMinSupported(requested)) {
+        throw new Error(`ccsk v${requested} is no longer supported. ` +
+            `The minimum supported version is v${MIN_SUPPORTED_VERSION}. ` +
+            `Try \`ccsk update latest\` or pin a version >= v${MIN_SUPPORTED_VERSION}.`);
     }
     const before = readCurrentVersion();
     const pm = detectPackageManager();

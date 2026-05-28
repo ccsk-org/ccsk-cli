@@ -13,6 +13,7 @@ import { fetchKit } from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
 import { runSetup } from '../core/setup-runner.js';
 import { printBanner } from '../util/banner.js';
+import { ensureCcskGitignoreBlock } from '../util/gitignore-sync.js';
 import { log } from '../util/log.js';
 const BANNER_META = {
     slogan: 'Claude Code Starter Kit — scaffold Claude-ready projects in one command.',
@@ -66,7 +67,10 @@ export async function runInit(opts) {
     log.step(`Installing "${kit.label}" kit into ${targetAbs}`);
     const written = await copyKit(fetchResult.cachePath, targetAbs);
     log.success(`Copied: ${written.join(', ')}`);
-    // 6. Optional tool setup
+    // 6. Sync the ccsk-managed .gitignore block (create / merge / replace).
+    const gitignoreAction = ensureCcskGitignoreBlock(targetAbs);
+    log.success(`Synced .gitignore (${gitignoreAction} ccsk-managed block)`);
+    // 7. Optional tool setup
     if (opts.setup && (opts.yes || await confirmSetup())) {
         await runSetup(targetAbs);
     }

@@ -9,9 +9,9 @@
  * them without redeploying the CLI.
  */
 
-import qrcode from 'qrcode-terminal';
 import { QRPay } from 'vietnam-qr-pay';
 import { log } from '../util/log.js';
+import { renderQrQuadrant } from '../util/qr-quadrant.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import type { KitMeta } from './kit-registry.js';
 import { getPaymentConfig, type Bank } from './payment-config.js';
@@ -57,11 +57,7 @@ function buildVietQRUrl(bank: Bank, amount: number, memo: string): string {
 }
 
 function renderQrLines(content: string): string[] {
-  let out = '';
-  qrcode.generate(content, { small: true }, (qr) => {
-    out = qr;
-  });
-  return out.split('\n').filter((line) => line.length > 0);
+  return renderQrQuadrant(content);
 }
 
 function padRight(line: string, width: number): string {

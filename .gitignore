@@ -2,3 +2,6 @@ node_modules/
 .serena/
 *.log
 .DS_Store
+
+# Operator-only migration: license-confirmation helpers (personal admin SQL)
+supabase/migrations/004_operator_helpers.sql
