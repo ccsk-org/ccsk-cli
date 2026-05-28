@@ -6,7 +6,7 @@ export const KIT_REGISTRY = [
     {
         id: 'common',
         label: 'Common',
-        repo: 'imnortheastt/ccsk-common-kit',
+        repo: 'ccsk-org/common-kit',
         pricing: 'free',
         description: 'Base Claude Code configuration — always free',
         defaultVersion: '1.0.0',
@@ -14,7 +14,7 @@ export const KIT_REGISTRY = [
     {
         id: 'frontend',
         label: 'Frontend',
-        repo: 'imnortheastt/ccsk-frontend-kit',
+        repo: 'ccsk-org/frontend-kit',
         pricing: 'paid',
         description: 'React/Next.js frontend kit with UI/UX patterns',
         defaultVersion: '1.0.0',
@@ -22,7 +22,7 @@ export const KIT_REGISTRY = [
     {
         id: 'backend',
         label: 'Backend',
-        repo: 'imnortheastt/ccsk-backend-kit',
+        repo: 'ccsk-org/backend-kit',
         pricing: 'paid',
         description: 'Node.js/Python backend kit — coming soon',
         defaultVersion: '1.0.0',
@@ -30,7 +30,7 @@ export const KIT_REGISTRY = [
     {
         id: 'mobile',
         label: 'Mobile',
-        repo: 'imnortheastt/ccsk-mobile-kit',
+        repo: 'ccsk-org/mobile-kit',
         pricing: 'paid',
         description: 'React Native/Flutter mobile kit — coming soon',
         defaultVersion: '1.0.0',
