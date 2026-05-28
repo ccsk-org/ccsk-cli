@@ -6,8 +6,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { select, confirm, isCancel, cancel } from '@clack/prompts';
-import { KIT_REGISTRY, getKitMeta, getEnabledKits, isKitEnabled, type KitMeta } from '../core/kit-registry.js';
+import {
+  KIT_REGISTRY,
+  formatKitPrice,
+  getKitMeta,
+  getEnabledKits,
+  isKitEnabled,
+  type KitMeta,
+} from '../core/kit-registry.js';
 import { validateLicenseForKit } from '../core/license.js';
+import { getPaymentConfig } from '../core/payment-config.js';
 import { ensureGitHubAuth } from '../core/github-auth.js';
 import { fetchKit } from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
@@ -92,6 +100,23 @@ export async function runInit(opts: InitOptions): Promise<void> {
   }
 
   log.success('Done. Open the project in Claude Code to get started.');
+  printNextSteps(targetAbs);
+}
+
+/**
+ * Post-init guidance. Shown after a successful kit install so the user knows
+ * the exact next command to bootstrap their tech stack + architecture + plan
+ * via the slash command shipped inside the kit.
+ */
+function printNextSteps(targetAbs: string): void {
+  const rel = path.relative(process.cwd(), targetAbs) || '.';
+  log.info('');
+  log.info('Next:');
+  log.info(`  cd ${rel}`);
+  log.info('  claude                       # open Claude Code in this project');
+  log.info('  /bootstrap <one-line>        # canonical name: ccsk:bootstrap → tech-stacks, architecture, docs, plan');
+  log.info('');
+  log.hint('Examples: `/bootstrap B2B HR SaaS for VN SMEs` · `/bootstrap` (no args = interview-only)');
 }
 
 async function selectKit(yes: boolean): Promise<KitMeta | null> {
@@ -101,24 +126,28 @@ async function selectKit(yes: boolean): Promise<KitMeta | null> {
     return enabledKits[0] ?? null;
   }
 
-  // Aligned-column picker: pad each kit label to the widest one, fill the gap
-  // with dots, then right-justify the price/status. Description sits below as
-  // @clack's hint (one line per option).
-  const nameWidth = Math.max(...KIT_REGISTRY.map((k) => k.label.length));
-  const priceWidth = Math.max(...KIT_REGISTRY.map((k) => k.priceLabel.length));
+  // Aligned-column picker. Price is sourced from Supabase `payment-config` so
+  // operators can re-price all paid kits without a CLI release; getPaymentConfig
+  // caches the response for the process lifetime and falls back to a baked-in
+  // value if the service is unreachable.
+  const { lifetime_price_vnd } = await getPaymentConfig();
+  const labelled = KIT_REGISTRY.map((k) => ({ kit: k, price: formatKitPrice(k, lifetime_price_vnd) }));
+
+  const nameWidth = Math.max(...labelled.map(({ kit }) => kit.label.length));
+  const priceWidth = Math.max(...labelled.map(({ price }) => price.length));
   const dotsTotal = 4; // minimum dot run between name and price
-  const fmt = (k: KitMeta): string => {
-    const dots = '.'.repeat(Math.max(dotsTotal, nameWidth + dotsTotal - k.label.length));
-    return `${k.label} ${dots} ${k.priceLabel.padStart(priceWidth)}`;
+  const fmt = (kit: KitMeta, price: string): string => {
+    const dots = '.'.repeat(Math.max(dotsTotal, nameWidth + dotsTotal - kit.label.length));
+    return `${kit.label} ${dots} ${price.padStart(priceWidth)}`;
   };
 
   const choice = await select({
     message: 'Which kit do you want to install?',
     initialValue: 'frontend',
-    options: KIT_REGISTRY.map((k) => ({
-      value: k.id,
-      label: fmt(k),
-      hint: k.description,
+    options: labelled.map(({ kit, price }) => ({
+      value: kit.id,
+      label: fmt(kit, price),
+      hint: kit.description,
     })),
   });
 

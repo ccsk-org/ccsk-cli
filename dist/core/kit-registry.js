@@ -1,6 +1,10 @@
 /**
  * Kit registry — metadata for available kits and their repos.
- * Kits are fetched from private GitHub repos, not bundled.
+ *
+ * Pricing copy is computed at render time from Supabase `payment-config`
+ * (`lifetime_price_vnd`), not stored here. That keeps a single source of truth
+ * for price and lets the operator re-price all paid kits from the Supabase
+ * dashboard without a CLI release. See `formatKitPrice()` below.
  */
 export const KIT_REGISTRY = [
     {
@@ -9,7 +13,7 @@ export const KIT_REGISTRY = [
         repo: 'ccsk-org/common-kit',
         pricing: 'free',
         description: 'Base Claude Code configuration, ready to ship',
-        priceLabel: 'Free forever',
+        comingSoon: false,
         defaultVersion: '1.0.0',
     },
     {
@@ -18,7 +22,7 @@ export const KIT_REGISTRY = [
         repo: 'ccsk-org/frontend-kit',
         pricing: 'paid',
         description: 'Fully-powered Claude Code config + ship-ready workflows',
-        priceLabel: '265,000 VND / Lifetime',
+        comingSoon: false,
         defaultVersion: '1.0.0',
     },
     {
@@ -26,8 +30,8 @@ export const KIT_REGISTRY = [
         label: 'Backend Workflows Kit',
         repo: 'ccsk-org/backend-kit',
         pricing: 'paid',
-        description: 'Same scope and price as Frontend — battle-ready APIs and services',
-        priceLabel: 'Coming soon',
+        description: 'Battle-ready API + service workflows for Node.js, Python, Go',
+        comingSoon: true,
         defaultVersion: '1.0.0',
     },
     {
@@ -35,8 +39,8 @@ export const KIT_REGISTRY = [
         label: 'Mobile Workflows Kit',
         repo: 'ccsk-org/mobile-kit',
         pricing: 'paid',
-        description: 'Same scope and price as Frontend — cross-platform mobile workflows',
-        priceLabel: 'Coming soon',
+        description: 'Cross-platform mobile workflows for React Native and Flutter',
+        comingSoon: true,
         defaultVersion: '1.0.0',
     },
 ];
@@ -44,10 +48,21 @@ export function getKitMeta(id) {
     return KIT_REGISTRY.find((k) => k.id === id);
 }
 export function getEnabledKits() {
-    // For now, only common and frontend are enabled
-    return KIT_REGISTRY.filter((k) => k.id === 'common' || k.id === 'frontend');
+    return KIT_REGISTRY.filter((k) => !k.comingSoon);
 }
 export function isKitEnabled(id) {
-    return id === 'common' || id === 'frontend';
+    const kit = getKitMeta(id);
+    return Boolean(kit && !kit.comingSoon);
+}
+/**
+ * Right-column price/status copy for the kit picker. Free kits ignore the
+ * Supabase price; paid kits format it via `vi-VN` locale (e.g. `265.000`).
+ * Coming-soon paid kits show the future price with a "(coming soon)" suffix.
+ */
+export function formatKitPrice(kit, lifetimePriceVnd) {
+    if (kit.pricing === 'free')
+        return 'Free forever';
+    const price = `${lifetimePriceVnd.toLocaleString('vi-VN')} VND / Lifetime`;
+    return kit.comingSoon ? `${price} (coming soon)` : price;
 }
 //# sourceMappingURL=kit-registry.js.map

@@ -1,9 +1,13 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { confirm, isCancel, cancel } from '@clack/prompts';
 import { execa } from 'execa';
 import { existingKitPaths, removeKit } from '../core/remove-kit.js';
-import { binExists } from '../util/platform.js';
+import { CCSK_PACKAGE_NAME, removeCcskGlobally } from '../core/pkg-manager.js';
+import { binExists, homeDir } from '../util/platform.js';
 import { log } from '../util/log.js';
+
+const CCSK_HOME = path.join(homeDir(), '.ccsk');
 
 export interface UninstallOptions {
   targetPath: string;
@@ -30,7 +34,7 @@ export async function runUninstall(opts: UninstallOptions): Promise<void> {
   }
 
   if (await confirmRemoveCcsk(opts.yes)) {
-    await removeCcsk();
+    await removeCcsk(opts.yes);
   }
 }
 
@@ -94,44 +98,55 @@ async function removeTools(): Promise<void> {
   }
 }
 
-/** Detect package manager and uninstall ccsk globally. */
-async function removeCcsk(): Promise<void> {
-  const pkgName = 'cc-starter-kit';
-
-  // npm unlink -g works for both linked packages AND regular global installs
-  // It's the most reliable cross-platform method
-  if (await binExists('npm')) {
-    const { exitCode } = await execa('npm', ['unlink', '-g', pkgName], { reject: false });
-    if (exitCode === 0 && !(await binExists('ccsk'))) {
-      log.success('Uninstalled ccsk via npm unlink -g');
-      return;
-    }
+/**
+ * Detect the package manager that owns `@ccsk/cli` and remove it, then offer to
+ * wipe `~/.ccsk` (license key + kit cache). Falls back to printing the exact
+ * manual command for the user's platform when automatic removal fails.
+ */
+async function removeCcsk(yes: boolean): Promise<void> {
+  if (!(await binExists('ccsk'))) {
+    log.info('ccsk is not on PATH — nothing to uninstall.');
+    await maybeWipeLocalState(yes);
+    return;
   }
 
-  // Try bun remove -g (for bun add -g installs, not bun link)
-  if (await binExists('bun')) {
-    const { exitCode } = await execa('bun', ['remove', '-g', pkgName], { reject: false });
-    if (exitCode === 0 && !(await binExists('ccsk'))) {
-      log.success('Uninstalled ccsk via bun');
-      return;
-    }
-  }
+  const result = await removeCcskGlobally();
 
-  // Try pnpm
-  if (await binExists('pnpm')) {
-    const { exitCode } = await execa('pnpm', ['remove', '-g', pkgName], { reject: false });
-    if (exitCode === 0 && !(await binExists('ccsk'))) {
-      log.success('Uninstalled ccsk via pnpm');
-      return;
-    }
-  }
-
-  // Check if ccsk is still available
-  if (await binExists('ccsk')) {
-    log.warn('Could not uninstall ccsk automatically.');
-    log.dim('    If installed via bun link, run: cd <ccsk-repo> && bun unlink');
-    log.dim('    Otherwise try: npm uninstall -g cc-starter-kit');
+  if (result.ok && result.via) {
+    log.success(`Uninstalled ${CCSK_PACKAGE_NAME} via ${result.via}`);
   } else {
-    log.success('ccsk has been uninstalled');
+    log.warn(`Could not uninstall ${CCSK_PACKAGE_NAME} automatically.`);
+    if (result.attempted.length > 0) {
+      log.dim(`    Tried: ${result.attempted.join(', ')}`);
+    }
+    log.dim('    Manual fallback (run any one that matches how you installed):');
+    log.dim(`      npm uninstall -g ${CCSK_PACKAGE_NAME}`);
+    log.dim(`      pnpm remove -g ${CCSK_PACKAGE_NAME}`);
+    log.dim(`      yarn global remove ${CCSK_PACKAGE_NAME}`);
+    log.dim(`      bun remove -g ${CCSK_PACKAGE_NAME}`);
+  }
+
+  await maybeWipeLocalState(yes);
+}
+
+/**
+ * Optionally delete `~/.ccsk` (license key + cached kit tarballs). Off by
+ * default so a reinstall doesn't force the user to re-enter their license key.
+ */
+async function maybeWipeLocalState(yes: boolean): Promise<void> {
+  if (!fs.existsSync(CCSK_HOME)) return;
+  if (yes) return; // never auto-wipe license/cache in non-interactive mode
+
+  const answer = await confirm({
+    message: `Also delete saved license key and kit cache (${CCSK_HOME})?`,
+    initialValue: false,
+  });
+  if (isCancel(answer) || answer !== true) return;
+
+  try {
+    fs.rmSync(CCSK_HOME, { recursive: true, force: true });
+    log.success(`Removed ${CCSK_HOME}`);
+  } catch (err) {
+    log.warn(`Could not remove ${CCSK_HOME}: ${(err as Error).message}`);
   }
 }
