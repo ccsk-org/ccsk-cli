@@ -43,7 +43,8 @@
     "commander": "^14.0.3",
     "execa": "^9.5.1",
     "picocolors": "^1.1.1",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "vietnam-qr-pay": "^1.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

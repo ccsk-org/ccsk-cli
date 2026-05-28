@@ -9,6 +9,7 @@ import { runInit } from './commands/init.js';
 import { runUninstall } from './commands/uninstall.js';
 import { runAuth } from './commands/auth.js';
 import { runCache } from './commands/cache.js';
+import { runUpdate } from './commands/update.js';
 import { log } from './util/log.js';
 function readPackageVersion() {
     try {
@@ -50,6 +51,13 @@ program
     .description('Check GitHub authentication status')
     .action(async () => {
     await guard(() => runAuth());
+});
+program
+    .command('update')
+    .description('Update ccsk CLI to the latest or a specific version')
+    .argument('[version]', 'version to install (e.g. latest, 1.0.2)', 'latest')
+    .action(async (version) => {
+    await guard(() => runUpdate({ version }));
 });
 program
     .command('cache')

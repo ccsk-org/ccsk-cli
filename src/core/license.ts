@@ -6,6 +6,7 @@ import { isCancel, select, text } from '@clack/prompts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { log } from '../util/log.js';
+import { withShimmer } from '../util/shimmer-spinner.js';
 import { homeDir } from '../util/platform.js';
 import { detectAuthMethod } from './github-auth.js';
 import { getKitMeta, type KitMeta } from './kit-registry.js';
@@ -110,7 +111,6 @@ async function registerFreeLicense(): Promise<LicenseResult> {
     const data = JSON.parse(bodyText) as { key: string; entitlements: string[] };
 
     saveKey(data.key);
-    log.success('Free license activated.');
     return { valid: true, key: data.key, entitlements: data.entitlements };
   } catch (err) {
     return {
@@ -180,7 +180,10 @@ export async function validateLicenseForKit(kitId: string): Promise<LicenseResul
 
   // Try saved key first.
   if (savedKey && KEY_REGEX.test(savedKey)) {
-    const result = await validateKeyForKit(savedKey, kitId, githubUsername);
+    const result = await withShimmer(
+      `Validating license for ${kit?.label ?? kitId}…`,
+      () => validateKeyForKit(savedKey, kitId, githubUsername),
+    );
     if (result.valid) {
       return result;
     }
@@ -193,8 +196,7 @@ export async function validateLicenseForKit(kitId: string): Promise<LicenseResul
   // Free kit: auto-register.
   if (!isPaidKit) {
     if (!savedKey) {
-      log.step('Activating free license...');
-      return registerFreeLicense();
+      return withShimmer('Activating free license…', () => registerFreeLicense());
     }
     // Has key but it failed validation for the free kit — fall through to manual entry.
   }

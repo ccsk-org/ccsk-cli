@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 import { select, confirm, isCancel, cancel } from '@clack/prompts';
 import { KIT_REGISTRY, getKitMeta, getEnabledKits, isKitEnabled } from '../core/kit-registry.js';
 import { validateLicenseForKit } from '../core/license.js';
-import { runPurchaseFlow } from '../core/vietqr.js';
 import { ensureGitHubAuth } from '../core/github-auth.js';
 import { fetchKit } from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
@@ -36,23 +35,13 @@ export async function runInit(opts) {
     const kit = opts.kit ? getKitMeta(opts.kit) : await selectKit(opts.yes);
     if (!kit)
         return;
-    // 2. Validate license for this kit
-    log.step(`Validating license for ${kit.label} kit...`);
-    let licenseResult = await validateLicenseForKit(kit.id);
-    if (!licenseResult.valid && kit.pricing === 'paid') {
-        // Show VietQR purchase flow for paid kits
-        const licenseKey = await runPurchaseFlow(kit);
-        if (!licenseKey) {
-            process.exit(1);
-        }
-        // Re-validate after purchase
-        licenseResult = await validateLicenseForKit(kit.id);
-    }
+    // 2. Validate license for this kit (handles free auto-register + 3-option paid menu).
+    // The shimmer spinner is shown inside validateLicenseForKit around each network call.
+    const licenseResult = await validateLicenseForKit(kit.id);
     if (!licenseResult.valid) {
-        log.error(licenseResult.reason);
+        log.info(licenseResult.reason);
         process.exit(1);
     }
-    log.success('License valid');
     // 3. Ensure GitHub auth
     const auth = await ensureGitHubAuth();
     if (auth.method === 'none') {
@@ -87,13 +76,23 @@ async function selectKit(yes) {
     if (yes) {
         return enabledKits[0] ?? null;
     }
+    // Aligned-column picker: pad each kit label to the widest one, fill the gap
+    // with dots, then right-justify the price/status. Description sits below as
+    // @clack's hint (one line per option).
+    const nameWidth = Math.max(...KIT_REGISTRY.map((k) => k.label.length));
+    const priceWidth = Math.max(...KIT_REGISTRY.map((k) => k.priceLabel.length));
+    const dotsTotal = 4; // minimum dot run between name and price
+    const fmt = (k) => {
+        const dots = '.'.repeat(Math.max(dotsTotal, nameWidth + dotsTotal - k.label.length));
+        return `${k.label} ${dots} ${k.priceLabel.padStart(priceWidth)}`;
+    };
     const choice = await select({
         message: 'Which kit do you want to install?',
         initialValue: 'frontend',
         options: KIT_REGISTRY.map((k) => ({
             value: k.id,
-            label: `${k.label}${k.pricing === 'free' ? ' (free)' : ''}`,
-            hint: isKitEnabled(k.id) ? k.description : 'coming soon',
+            label: fmt(k),
+            hint: k.description,
         })),
     });
     if (isCancel(choice)) {

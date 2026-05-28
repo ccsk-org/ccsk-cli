@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execa } from 'execa';
 import { log } from '../util/log.js';
+import { withShimmer } from '../util/shimmer-spinner.js';
 import { detectAuthMethod, getCloneUrl } from './github-auth.js';
 import { getCachePath, ensureCacheDirs, isCached } from './kit-cache.js';
 import type { KitMeta } from './kit-registry.js';
@@ -52,8 +53,6 @@ export async function fetchKit(
 
   const cloneUrl = getCloneUrl(kit.repo, auth.method);
 
-  log.step(`Downloading ${kit.label} kit v${version}...`);
-
   // Remove existing cache if force
   if (options.force && fs.existsSync(cachePath)) {
     fs.rmSync(cachePath, { recursive: true });
@@ -63,22 +62,23 @@ export async function fetchKit(
   fs.mkdirSync(path.dirname(cachePath), { recursive: true });
 
   try {
-    // Clone with depth 1 for efficiency
-    await execa('git', [
-      'clone',
-      '--depth', '1',
-      '--branch', `v${version}`,
-      cloneUrl,
-      cachePath,
-    ], { timeout: 120_000 });
+    await withShimmer(`Downloading ${kit.label} v${version}…`, async () => {
+      // Clone with depth 1 for efficiency
+      await execa('git', [
+        'clone',
+        '--depth', '1',
+        '--branch', `v${version}`,
+        cloneUrl,
+        cachePath,
+      ], { timeout: 120_000 });
 
-    // Remove .git directory to save space
-    const gitDir = path.join(cachePath, '.git');
-    if (fs.existsSync(gitDir)) {
-      fs.rmSync(gitDir, { recursive: true });
-    }
+      // Remove .git directory to save space
+      const gitDir = path.join(cachePath, '.git');
+      if (fs.existsSync(gitDir)) {
+        fs.rmSync(gitDir, { recursive: true });
+      }
+    });
 
-    log.success(`Downloaded ${kit.label} kit v${version}`);
     return { success: true, cachePath, fromCache: false };
   } catch (err) {
     // Clean up partial clone

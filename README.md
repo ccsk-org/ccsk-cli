@@ -54,6 +54,19 @@ ccsk cache --clear --kit frontend       # purge one kit
 ccsk cache --clear-all                  # purge everything
 ```
 
+### `ccsk update [version]`
+
+Upgrade the globally installed CLI. Auto-detects npm / pnpm / yarn / bun from the active user agent.
+
+```bash
+ccsk update              # install @ccsk/cli@latest
+ccsk update latest       # same as above
+ccsk update 1.0.2        # pin to a specific version
+ccsk update next         # any npm dist-tag also works
+```
+
+Shows the before → after version after the installer finishes. If the install fails (permissions, network), the exact manual command is printed as a fallback hint.
+
 ### `ccsk uninstall [path]`
 
 Remove kit files (`CLAUDE.md`, `.claude/`, `.mcp.json`, `docs/`) from a project. Non-destructive to your application code.

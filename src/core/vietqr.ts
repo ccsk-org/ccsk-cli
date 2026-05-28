@@ -10,7 +10,9 @@
  */
 
 import qrcode from 'qrcode-terminal';
+import { QRPay } from 'vietnam-qr-pay';
 import { log } from '../util/log.js';
+import { withShimmer } from '../util/shimmer-spinner.js';
 import type { KitMeta } from './kit-registry.js';
 import { getPaymentConfig, type Bank } from './payment-config.js';
 
@@ -33,6 +35,16 @@ function kitShort(kitId: string): string {
 function buildTransferMemo(kitId: string, displayTxnId: string): string {
   // Example: "CCSK TT KIT FE 482917"
   return `CCSK TT KIT ${kitShort(kitId)} ${displayTxnId}`;
+}
+
+function buildVietQRPayload(bank: Bank, amount: number, memo: string): string {
+  const qr = QRPay.initVietQR({
+    bankBin: bank.bin,
+    bankNumber: bank.account_number,
+  });
+  qr.amount = amount.toString();
+  qr.additionalData.purpose = memo;
+  return qr.build();
 }
 
 function buildVietQRUrl(bank: Bank, amount: number, memo: string): string {
@@ -122,8 +134,9 @@ export async function runPurchaseFlow(
     return null;
   }
 
-  log.step('Reserving your transaction…');
-  const pending = await createPendingLicense(email, githubUsername, kit, amount);
+  const pending = await withShimmer('Reserving your transaction…', () =>
+    createPendingLicense(email, githubUsername, kit, amount),
+  );
 
   if (!pending.ok) {
     log.error(`Could not reserve a transaction id. ${pending.reason}`);
@@ -133,8 +146,9 @@ export async function runPurchaseFlow(
   const memo = buildTransferMemo(kit.id, pending.data.display_txn_id);
 
   const blocks = config.banks.map((bank) => {
+    const payload = buildVietQRPayload(bank, amount, memo);
     const url = buildVietQRUrl(bank, amount, memo);
-    return { bank, url, qr: renderQrLines(url) };
+    return { bank, url, qr: renderQrLines(payload) };
   });
 
   log.info('');

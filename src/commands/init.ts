@@ -49,14 +49,13 @@ export async function runInit(opts: InitOptions): Promise<void> {
   if (!kit) return;
 
   // 2. Validate license for this kit (handles free auto-register + 3-option paid menu).
-  log.step(`Validating license for ${kit.label} kit...`);
+  // The shimmer spinner is shown inside validateLicenseForKit around each network call.
   const licenseResult = await validateLicenseForKit(kit.id);
 
   if (!licenseResult.valid) {
     log.info(licenseResult.reason);
     process.exit(1);
   }
-  log.success('License valid');
 
   // 3. Ensure GitHub auth
   const auth = await ensureGitHubAuth();
@@ -102,13 +101,24 @@ async function selectKit(yes: boolean): Promise<KitMeta | null> {
     return enabledKits[0] ?? null;
   }
 
+  // Aligned-column picker: pad each kit label to the widest one, fill the gap
+  // with dots, then right-justify the price/status. Description sits below as
+  // @clack's hint (one line per option).
+  const nameWidth = Math.max(...KIT_REGISTRY.map((k) => k.label.length));
+  const priceWidth = Math.max(...KIT_REGISTRY.map((k) => k.priceLabel.length));
+  const dotsTotal = 4; // minimum dot run between name and price
+  const fmt = (k: KitMeta): string => {
+    const dots = '.'.repeat(Math.max(dotsTotal, nameWidth + dotsTotal - k.label.length));
+    return `${k.label} ${dots} ${k.priceLabel.padStart(priceWidth)}`;
+  };
+
   const choice = await select({
     message: 'Which kit do you want to install?',
     initialValue: 'frontend',
     options: KIT_REGISTRY.map((k) => ({
       value: k.id,
-      label: `${k.label}${k.pricing === 'free' ? ' (free)' : ''}`,
-      hint: isKitEnabled(k.id) ? k.description : 'coming soon',
+      label: fmt(k),
+      hint: k.description,
     })),
   });
 
