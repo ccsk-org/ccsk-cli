@@ -1,0 +1,4 @@
+node_modules/
+.serena/
+*.log
+.DS_Store

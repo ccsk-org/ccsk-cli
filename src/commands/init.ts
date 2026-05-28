@@ -7,8 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { select, confirm, isCancel, cancel } from '@clack/prompts';
 import { KIT_REGISTRY, getKitMeta, getEnabledKits, isKitEnabled, type KitMeta } from '../core/kit-registry.js';
-import { validateLicenseForKit, hasSavedLicense } from '../core/license.js';
-import { runPurchaseFlow } from '../core/vietqr.js';
+import { validateLicenseForKit } from '../core/license.js';
 import { ensureGitHubAuth } from '../core/github-auth.js';
 import { fetchKit } from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
@@ -49,22 +48,12 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const kit = opts.kit ? getKitMeta(opts.kit) : await selectKit(opts.yes);
   if (!kit) return;
 
-  // 2. Validate license for this kit
+  // 2. Validate license for this kit (handles free auto-register + 3-option paid menu).
   log.step(`Validating license for ${kit.label} kit...`);
-  let licenseResult = await validateLicenseForKit(kit.id);
-
-  if (!licenseResult.valid && kit.pricing === 'paid') {
-    // Show VietQR purchase flow for paid kits
-    const licenseKey = await runPurchaseFlow(kit);
-    if (!licenseKey) {
-      process.exit(1);
-    }
-    // Re-validate after purchase
-    licenseResult = await validateLicenseForKit(kit.id);
-  }
+  const licenseResult = await validateLicenseForKit(kit.id);
 
   if (!licenseResult.valid) {
-    log.error(licenseResult.reason);
+    log.info(licenseResult.reason);
     process.exit(1);
   }
   log.success('License valid');

@@ -1,78 +1,83 @@
 /**
- * VietQR payment flow for paid kits.
+ * VietQR purchase flow for paid kits.
+ *
+ * UX: create pending license (Supabase) → render two side-by-side terminal QR codes
+ * for each enabled bank → exit with "we'll email you" message. License key is issued
+ * manually by the operator after payment is confirmed.
+ *
+ * Banks + price are loaded from Supabase via payment-config so the operator can edit
+ * them without redeploying the CLI.
  */
 
-import crypto from 'node:crypto';
+import qrcode from 'qrcode-terminal';
 import { log } from '../util/log.js';
 import type { KitMeta } from './kit-registry.js';
+import { getPaymentConfig, type Bank } from './payment-config.js';
 
 const SUPABASE_URL = 'https://qorrssuqkblahzzlonhz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_iYy5ExmiYqVIwxCD3e5SqQ_E1VNLSKK';
 
-// Kit prices in VND
-const KIT_PRICES: Record<string, number> = {
-  frontend: 500_000,
-  backend: 500_000,
-  mobile: 500_000,
-};
-
-// Bank info for VietQR
-const BANK_INFO = {
-  bankId: 'VCB',
-  accountNo: '1234567890',
-  accountName: 'CRYSTAL D',
-};
-
-interface PaymentStatus {
-  paid: boolean;
-  licenseKey?: string;
+interface PendingLicenseResponse {
+  id: string;
+  display_txn_id: string;
+  expires_at: string;
 }
 
-function generateUserHash(): string {
-  const machineId = `${process.env.USER ?? 'user'}-${Date.now()}`;
-  return crypto.createHash('sha256').update(machineId).digest('hex').slice(0, 12);
+function kitShort(kitId: string): string {
+  if (kitId === 'frontend') return 'FE';
+  if (kitId === 'backend') return 'BE';
+  if (kitId === 'mobile') return 'MB';
+  return kitId.toUpperCase().slice(0, 2);
 }
 
-function getTransferMessage(kit: string, userHash: string): string {
-  const prefix = kit === 'frontend' ? 'FE' : kit === 'backend' ? 'BE' : 'MB';
-  return `CCSK-${prefix}-${userHash}`;
+function buildTransferMemo(kitId: string, displayTxnId: string): string {
+  // Example: "CCSK TT KIT FE 482917"
+  return `CCSK TT KIT ${kitShort(kitId)} ${displayTxnId}`;
 }
 
-function generateVietQRAscii(amount: number, message: string): string {
-  // Simple ASCII representation of QR payment info
-  // In production, use a proper QR library
-  const border = '─'.repeat(45);
+function buildVietQRUrl(bank: Bank, amount: number, memo: string): string {
+  const params = new URLSearchParams({
+    accountName: bank.account_name,
+    amount: amount.toString(),
+    addInfo: memo,
+  });
+  return `https://api.vietqr.io/image/${bank.bin}-${bank.account_number}-i7ISzDh.jpg?${params.toString()}`;
+}
 
-  return `
-┌${border}┐
-│                                             │
-│           SCAN TO PAY WITH VIETQR           │
-│                                             │
-│    ▄▄▄▄▄▄▄  ▄▄▄▄▄ ▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄         │
-│    █ ▄▄▄ █ ▄█ ▄▄▀ █ ▄▄▄ █  █ ▄▄▄ █         │
-│    █ ███ █ ▄▄▀█▄▄ █ ███ █  █ ███ █         │
-│    █▄▄▄▄▄█ █ █ ▄ █▄▄▄▄▄█   █▄▄▄▄▄█         │
-│    ▄▄ ▄  ▄▄▀▄▀▄▀▄ ▄▄▄▄▄▄   ▄ ▄ ▄▄▄         │
-│    █▄██▀▄▄▄█▄▄▀▀█ ▀▄▀▄▀▄   ▀▄▀▄▀▄▀         │
-│    ▄▄▄▄▄▄▄ █▀█▄█▄ ▄▄▄▄▄▄   ▄▄▄▄▄▄▄         │
-│    █ ▄▄▄ █ ▄▄█▀▄▀ █ ▄▄▄ █  █ ▄▄▄ █         │
-│    █ ███ █ █ ▀▄█▀ █ ███ █  █ ███ █         │
-│    █▄▄▄▄▄█ ██▄▄▄█ █▄▄▄▄▄█  █▄▄▄▄▄█         │
-│                                             │
-├${border}┤
-│  Bank:      ${BANK_INFO.bankId.padEnd(31)} │
-│  Account:   ${BANK_INFO.accountNo.padEnd(31)} │
-│  Name:      ${BANK_INFO.accountName.padEnd(31)} │
-│  Amount:    ${amount.toLocaleString('vi-VN').padEnd(27)} VND │
-│  Message:   ${message.padEnd(31)} │
-└${border}┘`;
+function renderQrLines(content: string): string[] {
+  let out = '';
+  qrcode.generate(content, { small: true }, (qr) => {
+    out = qr;
+  });
+  return out.split('\n').filter((line) => line.length > 0);
+}
+
+function padRight(line: string, width: number): string {
+  if (line.length >= width) return line;
+  return line + ' '.repeat(width - line.length);
+}
+
+function renderSideBySide(blocks: Array<{ label: string; qr: string[] }>): string {
+  const widths = blocks.map((b) => b.qr.reduce((max, l) => Math.max(max, l.length), b.label.length));
+  const rows = blocks.reduce((max, b) => Math.max(max, b.qr.length), 0);
+  const gap = '    ';
+  const lines: string[] = [];
+
+  lines.push(blocks.map((b, i) => padRight(b.label, widths[i])).join(gap));
+
+  for (let i = 0; i < rows; i++) {
+    lines.push(blocks.map((b, idx) => padRight(b.qr[i] ?? '', widths[idx])).join(gap));
+  }
+
+  return lines.join('\n');
 }
 
 async function createPendingLicense(
+  email: string,
+  githubUsername: string,
   kit: KitMeta,
-  userHash: string,
-  email?: string
-): Promise<boolean> {
+  amountVnd: number,
+): Promise<{ ok: true; data: PendingLicenseResponse } | { ok: false; reason: string }> {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/create-pending-license`, {
       method: 'POST',
@@ -81,84 +86,84 @@ async function createPendingLicense(
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({
-        userHash,
-        kit: kit.id,
         email,
-        amount: KIT_PRICES[kit.id] ?? 500_000,
+        github_username: githubUsername,
+        kit: kit.id,
+        amount_vnd: amountVnd,
       }),
     });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
-async function checkPaymentStatus(userHash: string, kitId: string): Promise<PaymentStatus> {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/check-payment-status`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({ userHash, kit: kitId }),
-    });
+    const bodyText = await res.text();
 
     if (!res.ok) {
-      return { paid: false };
+      return { ok: false, reason: `HTTP ${res.status}: ${bodyText.slice(0, 200)}` };
     }
 
-    return await res.json() as PaymentStatus;
-  } catch {
-    return { paid: false };
+    return { ok: true, data: JSON.parse(bodyText) as PendingLicenseResponse };
+  } catch (err) {
+    return { ok: false, reason: `Network error: ${(err as Error).message}` };
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+/**
+ * Run the purchase flow. Always returns null because key issuance is manual.
+ * Caller should treat null as "exit cleanly, do not continue install".
+ */
+export async function runPurchaseFlow(
+  kit: KitMeta,
+  email: string,
+  githubUsername: string,
+): Promise<null> {
+  const config = await getPaymentConfig();
+  const amount = config.lifetime_price_vnd;
 
-export async function runPurchaseFlow(kit: KitMeta): Promise<string | null> {
-  const price = KIT_PRICES[kit.id] ?? 500_000;
-  const userHash = generateUserHash();
-  const message = getTransferMessage(kit.id, userHash);
-
-  log.info('');
-  log.info(`${kit.label} Kit License Required`);
-  log.info('');
-
-  // Create pending license record
-  await createPendingLicense(kit, userHash);
-
-  // Display QR
-  console.log(generateVietQRAscii(price, message));
-
-  log.info('');
-  log.info('Scan with your banking app to pay.');
-  log.info('License activates automatically after payment.');
-  log.info('');
-  log.hint('Press Ctrl+C to cancel');
-  log.info('');
-
-  // Poll for payment
-  const startTime = Date.now();
-  const timeout = 10 * 60 * 1000; // 10 minutes
-
-  while (Date.now() - startTime < timeout) {
-    process.stdout.write('\r  Checking payment status...');
-
-    const status = await checkPaymentStatus(userHash, kit.id);
-
-    if (status.paid && status.licenseKey) {
-      process.stdout.write('\r');
-      log.success('Payment received! License activated.');
-      return status.licenseKey;
-    }
-
-    await sleep(10_000); // Check every 10 seconds
+  if (config.banks.length === 0) {
+    log.error('No banks are configured for VietQR payments. Contact support.');
+    return null;
   }
 
-  process.stdout.write('\r');
-  log.warn('Payment timeout. Run ccsk init again after paying.');
+  log.step('Reserving your transaction…');
+  const pending = await createPendingLicense(email, githubUsername, kit, amount);
+
+  if (!pending.ok) {
+    log.error(`Could not reserve a transaction id. ${pending.reason}`);
+    return null;
+  }
+
+  const memo = buildTransferMemo(kit.id, pending.data.display_txn_id);
+
+  const blocks = config.banks.map((bank) => {
+    const url = buildVietQRUrl(bank, amount, memo);
+    return { bank, url, qr: renderQrLines(url) };
+  });
+
+  log.info('');
+  log.info(`${kit.label} Kit — lifetime license`);
+  log.info(`Amount     : ${amount.toLocaleString('vi-VN')} VND`);
+  log.info(`Account    : ${config.banks[0].account_name}`);
+  log.info(`Memo       : ${memo}`);
+  log.info(`Txn ID     : ${pending.data.display_txn_id}   (keep this if you need to follow up)`);
+  log.info('');
+  log.info('Scan a QR with your phone camera, then complete the transfer in your banking app:');
+  log.info('');
+
+  console.log(
+    renderSideBySide(blocks.map((b) => ({ label: `[${b.bank.label}]`, qr: b.qr }))),
+  );
+
+  log.info('');
+  for (const b of blocks) {
+    log.info(`${b.bank.label.padEnd(12)} : ${b.url}`);
+  }
+  log.info('');
+  log.success(`After we confirm your payment we will email the license key to ${email}.`);
+  log.hint('Then run `ccsk init` again and choose "Already have a license. Enter key".');
+  log.info('');
+
   return null;
+}
+
+/** Exported so the license menu can show the price in its label. */
+export async function getLifetimePriceVnd(): Promise<number> {
+  return (await getPaymentConfig()).lifetime_price_vnd;
 }

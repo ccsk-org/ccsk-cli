@@ -1,12 +1,15 @@
 /**
- * License validation with per-kit entitlements.
+ * License validation with per-kit entitlements and per-GitHub-account binding.
  */
 
-import { isCancel, text } from '@clack/prompts';
+import { isCancel, select, text } from '@clack/prompts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { log } from '../util/log.js';
 import { homeDir } from '../util/platform.js';
+import { detectAuthMethod } from './github-auth.js';
+import { getKitMeta, type KitMeta } from './kit-registry.js';
+import { getLifetimePriceVnd, runPurchaseFlow } from './vietqr.js';
 
 const SUPABASE_URL = 'https://qorrssuqkblahzzlonhz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_iYy5ExmiYqVIwxCD3e5SqQ_E1VNLSKK';
@@ -42,8 +45,16 @@ function saveKey(key: string): void {
   fs.writeFileSync(LICENSE_FILE, key, 'utf8');
 }
 
-/** Validate a license key for a specific kit. */
-async function validateKeyForKit(key: string, kitId: string): Promise<LicenseResult> {
+async function resolveGitHubUsername(): Promise<string | null> {
+  const status = await detectAuthMethod();
+  return status.username ?? null;
+}
+
+async function validateKeyForKit(
+  key: string,
+  kitId: string,
+  githubUsername: string | null,
+): Promise<LicenseResult> {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/validate-license`, {
       method: 'POST',
@@ -51,7 +62,7 @@ async function validateKeyForKit(key: string, kitId: string): Promise<LicenseRes
         'Content-Type': 'application/json',
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      body: JSON.stringify({ key, kit: kitId }),
+      body: JSON.stringify({ key, kit: kitId, github_username: githubUsername }),
     });
 
     if (!res.ok) {
@@ -76,7 +87,6 @@ async function validateKeyForKit(key: string, kitId: string): Promise<LicenseRes
   }
 }
 
-/** Register a free license for common kit. */
 async function registerFreeLicense(): Promise<LicenseResult> {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/register-free-license`, {
@@ -88,27 +98,29 @@ async function registerFreeLicense(): Promise<LicenseResult> {
       body: JSON.stringify({}),
     });
 
+    const bodyText = await res.text();
+
     if (!res.ok) {
-      return { valid: false, reason: 'Could not register free license. Try again later.' };
+      return {
+        valid: false,
+        reason: `Free license service returned HTTP ${res.status}: ${bodyText.slice(0, 200)}`,
+      };
     }
 
-    const data = (await res.json()) as { key: string; entitlements: string[] };
+    const data = JSON.parse(bodyText) as { key: string; entitlements: string[] };
 
     saveKey(data.key);
     log.success('Free license activated.');
     return { valid: true, key: data.key, entitlements: data.entitlements };
-  } catch {
+  } catch (err) {
     return {
       valid: false,
-      reason: 'Could not register free license. Check your internet connection.',
+      reason: `Could not register free license: ${(err as Error).message}`,
     };
   }
 }
 
 async function promptForKey(): Promise<string | null> {
-  log.info('A license key is required for this kit.');
-  log.hint('Enter your license key or purchase one to continue.');
-
   const input = await text({
     message: 'Enter your license key:',
     placeholder: 'CCSK-XXXX-XXXX-XXXX',
@@ -119,51 +131,112 @@ async function promptForKey(): Promise<string | null> {
     },
   });
 
-  if (isCancel(input)) {
-    return null;
-  }
-
+  if (isCancel(input)) return null;
   return (input as string).trim().toUpperCase();
 }
 
-/** Validate license for a specific kit. Handles free vs paid logic. */
+async function promptEmail(): Promise<string | null> {
+  const input = await text({
+    message: 'Email to receive your license key:',
+    placeholder: 'you@example.com',
+    validate: (value) => {
+      if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+        return 'Please enter a valid email address.';
+      }
+    },
+  });
+
+  if (isCancel(input)) return null;
+  return (input as string).trim().toLowerCase();
+}
+
+type PaidMenuChoice = 'enter' | 'buy' | 'back';
+
+async function showPaidKitMenu(kit: KitMeta, priceVnd: number): Promise<PaidMenuChoice> {
+  const choice = await select({
+    message: `${kit.label} kit requires a license.`,
+    options: [
+      { value: 'enter' as const, label: 'Already have a license. Enter key' },
+      {
+        value: 'buy' as const,
+        label: `Purchase a license (${priceVnd.toLocaleString('vi-VN')} VND - lifetime)`,
+      },
+      { value: 'back' as const, label: 'Back' },
+    ],
+  });
+
+  if (isCancel(choice)) return 'back';
+  return choice as PaidMenuChoice;
+}
+
+/** Validate license for a specific kit. Handles free vs paid + 3-option menu. */
 export async function validateLicenseForKit(kitId: string): Promise<LicenseResult> {
+  const kit = getKitMeta(kitId);
+  const isPaidKit = kit?.pricing === 'paid';
+
+  const githubUsername = isPaidKit ? await resolveGitHubUsername() : null;
+
   const savedKey = readSavedKey();
 
-  // If user has a saved key, check if it includes this kit
+  // Try saved key first.
   if (savedKey && KEY_REGEX.test(savedKey)) {
-    const result = await validateKeyForKit(savedKey, kitId);
+    const result = await validateKeyForKit(savedKey, kitId, githubUsername);
     if (result.valid) {
       return result;
     }
-
-    // Key exists but doesn't include this kit
     if (result.entitlements && result.entitlements.length > 0) {
       log.warn(`Your license includes: ${result.entitlements.join(', ')}`);
       log.warn(`But does not include: ${kitId}`);
     }
   }
 
-  // For free kits (common), auto-register if no valid license
-  if (kitId === 'common') {
+  // Free kit: auto-register.
+  if (!isPaidKit) {
     if (!savedKey) {
       log.step('Activating free license...');
       return registerFreeLicense();
     }
-    // Has a key but validation failed — prompt for new one
+    // Has key but it failed validation for the free kit — fall through to manual entry.
   }
 
-  // For paid kits, prompt for key
+  // Paid kit: present 3-option menu.
+  if (isPaidKit && kit) {
+    if (!githubUsername) {
+      return {
+        valid: false,
+        reason:
+          'GitHub authentication is required for paid kits. Configure SSH (`ssh -T git@github.com`) or `gh auth login`, then retry.',
+      };
+    }
+
+    const priceVnd = await getLifetimePriceVnd();
+    const choice = await showPaidKitMenu(kit, priceVnd);
+
+    if (choice === 'back') {
+      return { valid: false, reason: 'Cancelled.' };
+    }
+
+    if (choice === 'buy') {
+      const email = await promptEmail();
+      if (!email) {
+        return { valid: false, reason: 'Cancelled.' };
+      }
+      await runPurchaseFlow(kit, email, githubUsername);
+      return {
+        valid: false,
+        reason: 'Awaiting payment confirmation. Re-run `ccsk init` after you receive the license key by email.',
+      };
+    }
+    // choice === 'enter' → fall through to promptForKey.
+  }
+
   const newKey = await promptForKey();
 
   if (!newKey) {
-    return {
-      valid: false,
-      reason: 'License key required for this kit.',
-    };
+    return { valid: false, reason: 'License key required for this kit.' };
   }
 
-  const result = await validateKeyForKit(newKey, kitId);
+  const result = await validateKeyForKit(newKey, kitId, githubUsername);
 
   if (result.valid) {
     saveKey(newKey);
