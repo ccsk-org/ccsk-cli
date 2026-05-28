@@ -102,7 +102,7 @@ A `CCSK-XXXX-XXXX-XXXX` key stored at `~/.ccsk/license`. Free keys are auto-regi
 Required to clone kit repos. `ccsk auth` detects SSH (`ssh -T git@github.com`) and `gh` CLI (`gh auth status`) and reports which method is active. Either is sufficient.
 
 ### Cache
-Downloaded kits live under `~/.ccsk/cache/<kit>/<version>/`. `ccsk init` uses the cache automatically. `--force` re-clones; `ccsk cache --clear` purges.
+Downloaded kits live under `~/.ccsk/kits/<kit>/<version>/`. `ccsk init` uses the cache automatically. `--force` re-clones; `ccsk cache --clear` purges.
 
 ### Bootstrap (slash command)
 Shipped inside every kit at `.claude/commands/bootstrap.md` (canonical name `ccsk:bootstrap`). After `ccsk init`, open Claude Code and run `/bootstrap <intent>` — it interviews you, verifies current stack versions via `context7`/`docs-seeker`, and writes `docs/`, `CLAUDE.md` updates (surgically), and a phased `plans/` directory.
@@ -118,7 +118,7 @@ Lay a kit into a project directory.
 | Flag | Effect |
 | --- | --- |
 | `--kit <id>` | Skip the picker. Values: `common`, `frontend`, `backend`, `mobile`. |
-| `--version <semver>` | Pin to a specific kit version. Default: kit's `defaultVersion`. |
+| `--version <semver>` | Pin to a specific kit version. Default: latest release resolved at install time (`gh api releases/latest`, falling back to `git ls-remote --tags`). |
 | `--force` | Re-clone even if cached. |
 | `--no-setup` | Skip RTK-AI / context-mode / Serena MCP install step. |
 | `-y, --yes` | Auto-confirm every prompt. CI-safe. |
@@ -137,7 +137,7 @@ Diagnoses GitHub auth. Tries SSH first, falls back to `gh`. Prints exact remedia
 
 ### `ccsk cache`
 
-Manage `~/.ccsk/cache/`.
+Manage `~/.ccsk/kits/`.
 
 ```bash
 ccsk cache --list                          # show cached kits
@@ -259,7 +259,7 @@ ccsk cache --kit common --version 1.0.0
 ccsk cache --kit frontend --version 1.0.0
 ```
 
-Cached at `~/.ccsk/cache/<kit>/<version>/`. `ccsk init` reads the cache automatically; pass `--force` to re-clone.
+Cached at `~/.ccsk/kits/<kit>/<version>/`. `ccsk init` reads the cache automatically; pass `--force` to re-clone.
 
 License validation still requires a one-time online round trip per kit/version combination. Once validated, you're good offline.
 
@@ -287,7 +287,7 @@ If you hit a platform-specific bug, please file an issue with `ccsk --version`, 
 | Path | Owner | Contents |
 | --- | --- | --- |
 | `~/.ccsk/license` | `core/license.ts` | Single line. The activated CCSK key. |
-| `~/.ccsk/cache/<kit>/<version>/` | `core/kit-cache.ts` | Shallow-cloned kit contents. Safe to delete. |
+| `~/.ccsk/kits/<kit>/<version>/` | `core/kit-cache.ts` | Shallow-cloned kit contents. Safe to delete. |
 
 Per-project state (after `ccsk init`):
 

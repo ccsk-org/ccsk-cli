@@ -19,6 +19,8 @@ export interface FetchOptions {
 export interface FetchResult {
   success: boolean;
   cachePath: string;
+  /** Resolved version actually used (latest tag or `--version` pin). Always set, even on failure. */
+  version: string;
   fromCache: boolean;
   error?: string;
 }
@@ -28,30 +30,45 @@ export async function fetchKit(
   kit: KitMeta,
   options: FetchOptions = {}
 ): Promise<FetchResult> {
-  const version = options.version ?? kit.defaultVersion;
-  const cachePath = getCachePath(kit.id, version);
-
-  // Check cache first
-  if (!options.force && isCached(kit.id, version)) {
-    log.info(`Using cached ${kit.label} kit v${version}`);
-    return { success: true, cachePath, fromCache: true };
-  }
-
-  // Ensure cache dirs exist
+  // Auth must come before version resolution: SSH/HTTPS clone URL feeds both
+  // `git ls-remote` (fallback resolver) and the final clone.
   ensureCacheDirs();
-
-  // Detect auth method
   const auth = await detectAuthMethod();
   if (auth.method === 'none') {
+    const fallbackVersion = options.version ?? kit.defaultVersion;
     return {
       success: false,
-      cachePath,
+      cachePath: getCachePath(kit.id, fallbackVersion),
+      version: fallbackVersion,
       fromCache: false,
       error: 'GitHub authentication required. Run ccsk auth for setup instructions.',
     };
   }
-
   const cloneUrl = getCloneUrl(kit.repo, auth.method);
+
+  // Resolve which version to install. Explicit `--version` wins. Otherwise we
+  // ask the remote for the latest tag so a re-run of `ccsk init` picks up a
+  // new kit release without the user needing `--force`. If both `gh` and
+  // `git ls-remote` fail (offline), fall back to the registry's baseline.
+  let version: string;
+  if (options.version) {
+    version = options.version;
+  } else {
+    const resolved = await resolveLatestVersion(kit, cloneUrl);
+    version = resolved ?? kit.defaultVersion;
+    if (resolved) {
+      log.info(`Latest ${kit.label} release: v${resolved}`);
+    } else {
+      log.warn(`Could not resolve latest version for ${kit.label}; using fallback v${version}.`);
+    }
+  }
+  const cachePath = getCachePath(kit.id, version);
+
+  // Check cache after resolution so a new upstream tag bypasses stale entries.
+  if (!options.force && isCached(kit.id, version)) {
+    log.info(`Using cached ${kit.label} kit v${version}`);
+    return { success: true, cachePath, version, fromCache: true };
+  }
 
   // Remove existing cache if force
   if (options.force && fs.existsSync(cachePath)) {
@@ -79,7 +96,7 @@ export async function fetchKit(
       }
     });
 
-    return { success: true, cachePath, fromCache: false };
+    return { success: true, cachePath, version, fromCache: false };
   } catch (err) {
     // Clean up partial clone
     if (fs.existsSync(cachePath)) {
@@ -93,6 +110,7 @@ export async function fetchKit(
       return {
         success: false,
         cachePath,
+        version,
         fromCache: false,
         error: `Version v${version} not found for ${kit.label} kit. Check available versions.`,
       };
@@ -102,6 +120,7 @@ export async function fetchKit(
       return {
         success: false,
         cachePath,
+        version,
         fromCache: false,
         error: `Access denied to ${kit.label} kit. Ensure your license includes this kit and you have GitHub access.`,
       };
@@ -110,26 +129,73 @@ export async function fetchKit(
     return {
       success: false,
       cachePath,
+      version,
       fromCache: false,
       error: `Failed to download kit: ${message}`,
     };
   }
 }
 
-/** Fetch latest version tag from GitHub API. */
-export async function fetchLatestVersion(kit: KitMeta): Promise<string | null> {
-  try {
-    const { stdout } = await execa('gh', [
-      'api',
-      `repos/${kit.repo}/releases/latest`,
-      '--jq', '.tag_name',
-    ], { timeout: 10_000 });
+/**
+ * Resolve the kit's latest released version.
+ *
+ * Tries `gh api releases/latest` first (cheapest, exact semantic), then falls
+ * back to `git ls-remote --tags` so the resolver works for users on SSH-only
+ * setups without `gh` installed. Returns `null` if both paths fail so the
+ * caller can drop to the registry baseline.
+ */
+export async function resolveLatestVersion(kit: KitMeta, cloneUrl: string): Promise<string | null> {
+  const viaGh = await resolveViaGhRelease(kit);
+  if (viaGh) return viaGh;
+  return resolveViaGitTags(cloneUrl);
+}
 
-    const tag = stdout.trim();
-    // Remove 'v' prefix if present
-    return tag.startsWith('v') ? tag.slice(1) : tag;
+async function resolveViaGhRelease(kit: KitMeta): Promise<string | null> {
+  try {
+    const { exitCode, stdout } = await execa(
+      'gh',
+      ['api', `repos/${kit.repo}/releases/latest`, '--jq', '.tag_name'],
+      { reject: false, timeout: 10_000 },
+    );
+    if (exitCode !== 0) return null;
+    return stripVPrefix(stdout.trim()) || null;
   } catch {
-    // Fall back to default version
     return null;
   }
+}
+
+async function resolveViaGitTags(cloneUrl: string): Promise<string | null> {
+  try {
+    const { exitCode, stdout } = await execa(
+      'git',
+      ['ls-remote', '--tags', '--refs', cloneUrl],
+      { reject: false, timeout: 15_000 },
+    );
+    if (exitCode !== 0) return null;
+
+    // Each line: "<sha>\trefs/tags/<tag>"
+    const tags: string[] = [];
+    for (const line of stdout.split('\n')) {
+      const ref = line.split('\t')[1];
+      if (!ref) continue;
+      const tag = ref.replace(/^refs\/tags\//, '');
+      if (/^v?\d+\.\d+\.\d+$/.test(tag)) tags.push(stripVPrefix(tag));
+    }
+    if (tags.length === 0) return null;
+
+    tags.sort(compareSemver);
+    return tags[tags.length - 1];
+  } catch {
+    return null;
+  }
+}
+
+function stripVPrefix(tag: string): string {
+  return tag.startsWith('v') ? tag.slice(1) : tag;
+}
+
+function compareSemver(a: string, b: string): number {
+  const [a1, a2, a3] = a.split('.').map(Number);
+  const [b1, b2, b3] = b.split('.').map(Number);
+  return a1 - b1 || a2 - b2 || a3 - b3;
 }

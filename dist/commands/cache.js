@@ -5,7 +5,7 @@ import { select, confirm, isCancel } from '@clack/prompts';
 import { KIT_REGISTRY, getKitMeta } from '../core/kit-registry.js';
 import { validateLicenseForKit } from '../core/license.js';
 import { ensureGitHubAuth } from '../core/github-auth.js';
-import { fetchKit, fetchLatestVersion } from '../core/kit-fetcher.js';
+import { fetchKit } from '../core/kit-fetcher.js';
 import { listCachedKits, clearCache, clearAllCache, formatSize, } from '../core/kit-cache.js';
 import { log } from '../util/log.js';
 export async function runCache(opts) {
@@ -75,12 +75,10 @@ export async function runCache(opts) {
         if (auth.method === 'none') {
             return;
         }
-        // Resolve version
-        const version = opts.version ?? (await fetchLatestVersion(kit)) ?? kit.defaultVersion;
-        // Fetch
-        const result = await fetchKit(kit, { version, force: true });
+        // fetchKit resolves the latest tag internally when no `--version` is pinned.
+        const result = await fetchKit(kit, { version: opts.version, force: true });
         if (result.success) {
-            log.success(`Cached ${kit.label} kit v${version}`);
+            log.success(`Cached ${kit.label} kit v${result.version}`);
             log.hint(`Path: ${result.cachePath}`);
         }
         else {

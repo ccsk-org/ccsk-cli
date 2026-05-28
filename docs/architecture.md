@@ -9,12 +9,12 @@ src/
 ├── cli.ts                    # commander entry; wires sub-commands
 ├── commands/
 │   ├── init.ts               # main flow: pick → license → fetch → copy → setup
-│   ├── cache.ts              # warm/inspect ~/.ccsk/cache
+│   ├── cache.ts              # warm/inspect ~/.ccsk/kits
 │   ├── uninstall.ts          # kit files + optional global CLI + optional ~/.ccsk wipe
 │   └── update.ts             # `ccsk update` → self-update via the detected PM
 ├── core/
 │   ├── kit-registry.ts       # static kit catalogue + price formatter
-│   ├── kit-fetcher.ts        # `git clone --depth 1 v<ver>` into ~/.ccsk/cache
+│   ├── kit-fetcher.ts        # `git clone --depth 1 v<ver>` into ~/.ccsk/kits
 │   ├── kit-cache.ts          # cache path resolution + presence check
 │   ├── copy-kit.ts           # cache → target project copy
 │   ├── remove-kit.ts         # inverse of copy-kit (used by `ccsk uninstall`)
@@ -45,7 +45,7 @@ src/
    - Paid kit + no/expired key → interactive 3-option menu: enter key / buy / back.
    - Buy → `vietqr.ts` builds EMVCo payload (`vietnam-qr-pay`) + image URL, prints two QR codes.
 4. **GitHub auth** (`core/github-auth.ts`) — prefers SSH; falls back to `gh` token.
-5. **Fetch kit** (`core/kit-fetcher.ts`) — `git clone --depth 1 --branch v<X>` into `~/.ccsk/cache/<kit>/<version>`. Shallow + `.git` stripped after success. Wrapped in `withShimmer`.
+5. **Fetch kit** (`core/kit-fetcher.ts`) — `git clone --depth 1 --branch v<X>` into `~/.ccsk/kits/<kit>/<version>`. Shallow + `.git` stripped after success. Wrapped in `withShimmer`.
 6. **Copy** (`core/copy-kit.ts`) — confirm overwrite, copy from cache into target.
 7. **Optional setup** (`core/setup-runner.ts`) — install Claude/Serena/RTK MCPs.
 
@@ -64,7 +64,7 @@ src/
 | Path | Owner | Contents |
 | --- | --- | --- |
 | `~/.ccsk/license` | `core/license.ts` | Single line; the activated CCSK key. |
-| `~/.ccsk/cache/<kit>/<version>/` | `core/kit-cache.ts` | Shallow-cloned kit contents. Safe to delete. |
+| `~/.ccsk/kits/<kit>/<version>/` | `core/kit-cache.ts` | Shallow-cloned kit contents. Safe to delete. |
 
 ## Remote dependencies
 

@@ -15,6 +15,12 @@ export interface KitMeta {
   description: string;
   /** Released kits are installable. Unreleased kits show "(coming soon)" and refuse install. */
   comingSoon: boolean;
+  /**
+   * Offline fallback only. `fetchKit` resolves the *current* latest from the
+   * kit repo at install time (gh release → git ls-remote). This value is used
+   * solely when both resolution paths fail, so a totally offline user can still
+   * install a known-shipped version.
+   */
   defaultVersion: string;
 }
 
