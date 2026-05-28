@@ -1,0 +1,99 @@
+name: Bug report
+description: Report something that doesn't work the way it should.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in as much detail as you can so we can reproduce and fix it quickly.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: e.g. `ccsk init` exits with `Error: ...` after the kit picker.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: e.g. The kit should have been copied into the target directory.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Numbered steps from a clean state.
+      placeholder: |
+        1. `npm i -g @ccsk/cli`
+        2. `cd /tmp && mkdir demo && cd demo`
+        3. `ccsk init --kit common --yes`
+        4. See error: ...
+    validations:
+      required: true
+
+  - type: input
+    id: ccsk-version
+    attributes:
+      label: ccsk version
+      description: Output of `ccsk --version`.
+      placeholder: e.g. 1.0.5
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node version
+      description: Output of `node --version`.
+      placeholder: e.g. v20.18.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: pm
+    attributes:
+      label: Package manager used to install ccsk
+      options:
+        - npm
+        - pnpm
+        - yarn
+        - bun
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / stack trace
+      description: Anything printed to the terminal. Redact tokens, license keys, and email addresses.
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: I redacted any sensitive data (license keys, GitHub tokens, emails) from the logs above.
+          required: true

@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest a new capability, workflow, or improvement for ccsk.
+title: "[feat] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing an idea. Please describe the problem first — proposals that start from a real pain point are easier to evaluate and prioritize.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what's getting in the way today?
+      placeholder: e.g. I want to scaffold a kit into an existing monorepo workspace, but `ccsk init` assumes a single project root.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like ccsk to behave? CLI shape, flags, output, file layout — anything concrete helps.
+      placeholder: e.g. Add `--workspace <path>` to `ccsk init` so the kit is copied into the chosen workspace folder instead of CWD.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried or other approaches you weighed.
+      placeholder: e.g. Manually copying files post-init; symlinking; running `ccsk init` inside the workspace folder (breaks because of root-level config).
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Where does this change live?
+      options:
+        - CLI behaviour (commands, flags, prompts)
+        - Kit contents (rules, agents, commands, docs)
+        - Documentation / README
+        - Payment / licensing flow
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Screenshots, links, related issues, prior art.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true

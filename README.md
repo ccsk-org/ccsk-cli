@@ -22,18 +22,17 @@ This README is the official user documentation. For architecture details see [`d
 5. [Command reference](#command-reference)
 6. [Available kits](#available-kits)
 7. [License model](#license-model)
-8. [Payment flow](#payment-flow-paid-kits)
-9. [GitHub authentication](#github-authentication)
-10. [Offline & cache](#offline--cache)
-11. [Cross-platform support](#cross-platform-support)
-12. [Storage paths](#storage-paths)
-13. [Troubleshooting](#troubleshooting)
-14. [Local development](#local-development)
-15. [Architecture (one paragraph)](#architecture-one-paragraph)
-16. [Contributors](#contributors)
-17. [Contributing](#contributing)
-18. [Support](#support)
-19. [License](#license)
+8. [GitHub authentication](#github-authentication)
+9. [Offline & cache](#offline--cache)
+10. [Cross-platform support](#cross-platform-support)
+11. [What gets written into your project](#what-gets-written-into-your-project)
+12. [Troubleshooting](#troubleshooting)
+13. [Local development](#local-development)
+14. [Architecture (one paragraph)](#architecture-one-paragraph)
+15. [Contributors](#contributors)
+16. [Contributing](#contributing)
+17. [Support](#support)
+18. [License](#license)
 
 ---
 
@@ -96,13 +95,13 @@ After install, `ccsk --version` should print the installed version. If it doesn'
 A versioned, opinionated bundle (CLAUDE.md, `.claude/`, `docs/`, MCP config). One kit installs at a time. Free or paid. Pulled via `git clone --depth 1 --branch v<X>` from a private GitHub repo under [ccsk-org](https://github.com/ccsk-org).
 
 ### License
-A `CCSK-XXXX-XXXX-XXXX` key stored at `~/.ccsk/license`. Free keys are auto-registered on first run. Paid keys are bound to a single GitHub identity for piracy resistance.
+A `CCSK-XXXX-XXXX-XXXX` key. Free keys are auto-registered on first run. Paid keys are bound to a single GitHub identity.
 
 ### GitHub auth
 Required to clone kit repos. `ccsk auth` detects SSH (`ssh -T git@github.com`) and `gh` CLI (`gh auth status`) and reports which method is active. Either is sufficient.
 
 ### Cache
-Downloaded kits live under `~/.ccsk/kits/<kit>/<version>/`. `ccsk init` uses the cache automatically. `--force` re-clones; `ccsk cache --clear` purges.
+Downloaded kits are cached locally and reused on subsequent installs. `--force` re-clones; `ccsk cache --clear` purges.
 
 ### Bootstrap (slash command)
 Shipped inside every kit at `.claude/commands/bootstrap.md` (canonical name `ccsk:bootstrap`). After `ccsk init`, open Claude Code and run `/bootstrap <intent>` — it interviews you, verifies current stack versions via `context7`/`docs-seeker`, and writes `docs/`, `CLAUDE.md` updates (surgically), and a phased `plans/` directory.
@@ -178,62 +177,27 @@ Two-stage cleanup, both stages confirmed independently:
 
 | Kit | Status | What you get |
 | --- | --- | --- |
-| `common` | ✅ Stable · Free | Base Claude Code config: rules, agents, slash commands (`bootstrap` aka `ccsk:bootstrap`, `ultra-think`, `update-docs`), MCP scaffold, docs skeleton. Always free. |
-| `frontend` | ✅ Stable · Paid | Same baseline as common, with frontend-flavoured rules and agents. Future updates ship here first. |
-| `backend` | 🟡 Coming soon · Paid | Server-side workflows (Node / Python / Go). Same price as frontend on release. |
-| `mobile` | 🟡 Coming soon · Paid | Mobile workflows (React Native / Flutter / SwiftUI). Same price as frontend on release. |
+| `common` | ✅ Stable · Free | Base Claude Code config: foundational rules, generic sub-agents, the `bootstrap` slash command (canonical name `ccsk:bootstrap`), MCP scaffold, and a documentation skeleton. Always free. |
+| `frontend` | ✅ Stable · Paid | Everything in `common`, plus production-grade workflows, multi-agent orchestrations, harness-tuned prompts, opinionated sub-agents, and domain-specific rules built for shipping real software. |
+| `backend` | 🟡 Coming soon · Paid | Same depth as `frontend`, tuned for server-side work. |
+| `mobile`   | 🟡 Coming soon · Paid | Same depth as `frontend`, tuned for mobile platforms. |
 
-Lifetime price is fetched at run time from Supabase `app_settings` so the operator can re-price without a CLI release.
+Paid kits are purchased in-CLI via VietQR; the license key is emailed once the transfer is confirmed.
 
 ---
 
 ## License model
 
-### Free tier (`common` kit)
-First run auto-registers a free key (`CCSK-XXXX-XXXX-XXXX`), saves it to `~/.ccsk/license`, and unlocks the `common` kit. No payment, no email, no GitHub identity needed.
+A license is what unlocks a kit. There are two flavours:
 
-### Paid tier (other kits)
-When you select a paid kit without a valid license, `ccsk` shows a 3-option menu:
+- **Free license** — auto-issued on first run. Unlocks the `common` kit forever. No payment, no email, no account.
+- **Paid license** — bound to your GitHub identity for the lifetime of the kit. Unlocks one paid kit on any number of your own machines.
 
-```
-Frontend Workflows Kit requires a license.
-❯ Already have a license. Enter key
-  Purchase a license (265,000 VND - lifetime)
-  Back
-```
+The benefit of a paid license is full access to the kit's production workflows, orchestrations, and harness-tuned prompts on every project you scaffold from there on out — no per-project fee, no seat counting.
 
-| Choice | What happens |
-| --- | --- |
-| **Already have a license** | You paste the key. `ccsk` validates it against Supabase, binds it to your GitHub identity if first-use, and saves to `~/.ccsk/license`. |
-| **Purchase a license** | Triggers the [Payment flow](#payment-flow-paid-kits). |
-| **Back** | Returns to the kit picker. |
+### How to get a paid license
 
-### Per-account binding (paid kits)
-Paid licenses are bound to a single GitHub account on first successful validation. The GitHub identity is read automatically via `gh api user` or `ssh -T git@github.com` — no extra prompt.
-
-| Situation | Result |
-| --- | --- |
-| Same GitHub user, any number of machines | ✅ Works. |
-| Different GitHub user, same key (leaked) | ❌ `This license is bound to @other-user`. |
-| No GitHub auth | ❌ Paid kits refuse to install. Run `ccsk auth`. |
-
-Free `common` keys are unbound and shareable — they unlock nothing paid.
-
----
-
-## Payment flow (paid kits)
-
-The whole flow runs in your terminal:
-
-1. **Email prompt** — where the license key should be delivered.
-2. **Transaction reservation** — Supabase mints a 6-digit transaction ID and stores a `pending_licenses` row tagged with your email + GitHub username.
-3. **Side-by-side VietQR codes** — one QR per enabled bank rendered directly in your terminal (Momo + Techcombank by default). The QR payload is the **EMVCo VietQR string** (built locally with `vietnam-qr-pay`), so Vietnamese banking apps can scan it and pre-fill the transfer.
-4. **Transfer memo** is pre-filled: `CCSK TT KIT FE 482917`. Keep the 6-digit ID for follow-up if you need to contact support.
-5. **CLI exits cleanly** — no polling. Once the operator confirms your transfer, the license key is emailed to you. Re-run `ccsk init` and pick **Already have a license. Enter key**.
-
-> **Why manual issuance?** Bank reconciliation is operator-driven for now. The CLI never sees your transfer, only reserves a transaction ID for matching.
-
-The kit picker price and the bank list are both loaded from Supabase `app_settings` so the operator can re-price or rotate banks without a CLI release.
+Run `ccsk init`, pick a paid kit, and choose **Purchase a license**. The CLI walks you through the in-terminal VietQR flow and emails the key to you once payment is confirmed. From then on, re-run `ccsk init`, pick the same kit, and choose **Already have a license. Enter key**.
 
 ---
 
@@ -252,14 +216,14 @@ Kits live in private repos under [ccsk-org](https://github.com/ccsk-org). You ne
 
 ## Offline & cache
 
-Pre-fetch kits while connected:
+Pre-fetch kits while connected so they're available without a network later:
 
 ```bash
-ccsk cache --kit common --version 1.0.0
-ccsk cache --kit frontend --version 1.0.0
+ccsk cache --kit common --version 1.0.1
+ccsk cache --kit frontend --version 1.0.1
 ```
 
-Cached at `~/.ccsk/kits/<kit>/<version>/`. `ccsk init` reads the cache automatically; pass `--force` to re-clone.
+`ccsk init` reads the cache automatically; pass `--force` to re-clone, `ccsk cache --clear` to purge.
 
 License validation still requires a one-time online round trip per kit/version combination. Once validated, you're good offline.
 
@@ -276,25 +240,20 @@ Tested and supported on macOS, Linux, and Windows 10/11.
 | Shell injection | `execa` is invoked with array args everywhere. Package names and paths are constants. |
 | Terminal animations (shimmer spinner, QR render) | Gated on `process.stdout.isTTY`. Degrade to plain `→ step` lines under `NO_COLOR`, `CI`, or when piped. |
 | Recursive directory removal | `fs.rmSync(..., { recursive: true, force: true })`. No `rm -rf` shellouts. |
-| `~/.ccsk` wipe on uninstall | Only ever scoped to `path.join(os.homedir(), '.ccsk')`, behind a confirm prompt. |
+| Local-state wipe on uninstall | Scoped to the ccsk-managed directory under your home folder, behind a confirm prompt. |
 
 If you hit a platform-specific bug, please file an issue with `ccsk --version`, `node --version`, and `process.platform` so we can reproduce.
 
 ---
 
-## Storage paths
+## What gets written into your project
 
-| Path | Owner | Contents |
-| --- | --- | --- |
-| `~/.ccsk/license` | `core/license.ts` | Single line. The activated CCSK key. |
-| `~/.ccsk/kits/<kit>/<version>/` | `core/kit-cache.ts` | Shallow-cloned kit contents. Safe to delete. |
-
-Per-project state (after `ccsk init`):
+After a successful `ccsk init`, your project has:
 
 ```
 your-project/
 ├── CLAUDE.md             # primary Claude instructions
-├── .claude/              # agents, rules, slash commands, settings
+├── .claude/              # agents, rules, slash commands
 ├── .ccsk/                # per-project ccsk metadata
 ├── .mcp.json             # MCP server configuration
 └── docs/                 # documentation skeleton
@@ -313,7 +272,7 @@ your-project/
 | `This license is bound to @other-user` | Key already bound to another GitHub identity | Switch GitHub account or contact support. |
 | `GitHub authentication required` on paid kit | Neither SSH nor `gh` is set up | Run `ccsk auth` and follow the printed steps. |
 | Kit clone fails with `Permission denied (publickey)` | GitHub auth missing for kit-repo access | Same — `ccsk auth`. |
-| Bank app can't read the terminal QR | Terminal width or font issue | The printed `vietqr.io` URL below the QR is the fallback — open it on your phone. |
+| Bank app can't read the terminal QR | Terminal width or font issue | A fallback URL is printed below the QR — open it on your phone. |
 | `ccsk uninstall` couldn't remove the CLI | Detected PM failed silently | Run the manual command for your PM (the list is printed). |
 | Spinner shows raw text or no animation | Not a TTY, or `NO_COLOR`/`CI` set | Expected — the spinner intentionally degrades for logs and pipes. |
 
@@ -372,4 +331,4 @@ We welcome focused contributions.
 
 ## License
 
-MIT © Crystal D. and contributors. See [LICENSE](./LICENSE).
+Proprietary — all rights reserved. Source available for evaluation and audit. Commercial use, redistribution, and derivative works require prior written permission. See [LICENSE](./LICENSE).

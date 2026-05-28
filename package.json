@@ -1,6 +1,6 @@
 {
   "name": "@ccsk/cli",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Claude Code Starter Kit CLI — scaffold Claude-ready projects in one command",
   "type": "module",
   "bin": {
@@ -9,7 +9,8 @@
   "files": [
     "dist",
     "bin",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -26,10 +27,19 @@
     "starter-kit",
     "scaffold",
     "cli",
-    "ai-coding"
+    "ai-coding",
+    "harness-engineering",
+    "claude-code-workflows",
+    "orchestration",
+    "agents",
+    "subagents",
+    "prompt-engineering",
+    "context-engineering",
+    "slash-commands",
+    "mcp"
   ],
   "author": "Crystal D.",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/imnortheastt/ccsk-cli.git"

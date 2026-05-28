@@ -5,6 +5,14 @@ import { makeProgress } from '../util/progress.js';
 /** Root-level directories in a kit that are never copied into a target. */
 const EXCLUDED_ROOT_DIRS = new Set(['todo']);
 
+/**
+ * Filenames that must never propagate from a kit into a user project,
+ * regardless of where they sit in the tree. `settings.local.json` is
+ * Claude Code's per-machine, user-generated state — shipping one breaks
+ * `claude` launch on any schema mismatch. `.DS_Store` is a macOS artifact.
+ */
+const EXCLUDED_FILES = new Set(['settings.local.json', '.DS_Store']);
+
 /** Maps a `_dot_X` path segment to `.X`; leaves other segments untouched. */
 function renameSegment(segment: string): string {
   const match = /^_dot_(.+)$/.exec(segment);
@@ -21,6 +29,7 @@ async function collectFiles(srcDir: string, rel = ''): Promise<string[]> {
       if (rel === '' && EXCLUDED_ROOT_DIRS.has(entry.name)) continue;
       files.push(...(await collectFiles(srcDir, childRel)));
     } else if (entry.isFile()) {
+      if (EXCLUDED_FILES.has(entry.name)) continue;
       files.push(childRel);
     }
   }

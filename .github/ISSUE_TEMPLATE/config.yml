@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/imnortheastt/ccsk-cli/discussions
+    about: Ask how to use ccsk, share kits, or discuss workflows. Please don't open issues for usage questions.
+  - name: Commercial / licensing inquiries
+    url: mailto:duongdong2203@gmail.com
+    about: Commercial licenses, paid-kit access, or anything that shouldn't be public.
+  - name: Security disclosure
+    url: https://github.com/imnortheastt/ccsk-cli/security/policy
+    about: Report a security vulnerability privately. Do NOT open a public issue.
