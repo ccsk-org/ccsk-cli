@@ -36,13 +36,22 @@
     "prompt-engineering",
     "context-engineering",
     "slash-commands",
-    "mcp"
+    "mcp",
+    "ccsk",
+    "ccsk-cli",
+    "claude-code-starter-kit",
+    "@ccsk/cli",
+    "claude"
   ],
   "author": "Crystal D.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/imnortheastt/ccsk-cli.git"
+    "url": "git+https://github.com/ccsk-org/ccsk-cli.git"
+  },
+  "homepage": "https://github.com/ccsk-org/ccsk-cli#readme",
+  "bugs": {
+    "url": "https://github.com/ccsk-org/ccsk-cli/issues"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

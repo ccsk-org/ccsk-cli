@@ -19,7 +19,7 @@ We will agree on scope and approach in the issue. PRs without a linked, accepted
 ## Development setup
 
 ```bash
-git clone https://github.com/imnortheastt/ccsk-cli.git
+git clone https://github.com/ccsk-org/ccsk-cli.git
 cd ccsk-cli
 npm install
 npm run build

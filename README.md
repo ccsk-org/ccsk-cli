@@ -281,7 +281,7 @@ your-project/
 ## Local development
 
 ```bash
-git clone git@github.com:imnortheastt/ccsk-cli.git
+git clone git@github.com:ccsk-org/ccsk-cli.git
 cd ccsk-cli
 
 npm install        # or: pnpm install / bun install
@@ -323,8 +323,8 @@ We welcome focused contributions.
 
 ## Support
 
-- **Issues:** https://github.com/imnortheastt/ccsk-cli/issues
-- **Discussions:** https://github.com/imnortheastt/ccsk-cli/discussions
+- **Issues:** https://github.com/ccsk-org/ccsk-cli/issues
+- **Discussions:** https://github.com/ccsk-org/ccsk-cli/discussions
 - **Contact:** duongdong2203@gmail.com
 
 ---
