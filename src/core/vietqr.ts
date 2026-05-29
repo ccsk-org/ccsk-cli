@@ -11,7 +11,7 @@
 
 import { QRPay } from 'vietnam-qr-pay';
 import { log } from '../util/log.js';
-import { renderQrQuadrant } from '../util/qr-quadrant.js';
+import { renderQrTerminal } from '../util/qr-terminal.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import type { KitMeta } from './kit-registry.js';
 import { getPaymentConfig, type Bank } from './payment-config.js';
@@ -57,7 +57,7 @@ function buildVietQRUrl(bank: Bank, amount: number, memo: string): string {
 }
 
 function renderQrLines(content: string): string[] {
-  return renderQrQuadrant(content);
+  return renderQrTerminal(content);
 }
 
 function padRight(line: string, width: number): string {

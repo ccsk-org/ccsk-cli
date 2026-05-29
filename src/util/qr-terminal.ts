@@ -1,7 +1,12 @@
 /**
- * QR renderer that uses Unicode quadrant glyphs (2x2 modules per character),
- * producing a QR roughly half the size of `qrcode-terminal`'s `small` mode
- * (half-blocks, 1x2 modules per character).
+ * Terminal QR renderer using Unicode half-block glyphs (1 module wide, 2 modules
+ * tall per character).
+ *
+ * Why half-blocks: a monospace terminal cell is roughly twice as tall as it is
+ * wide (~1:2). Packing one module per character horizontally and two stacked
+ * modules vertically makes each rendered module square, so the whole QR comes
+ * out square instead of stretched ~2x tall. Half-blocks are also the most
+ * scan-reliable shape for bank/VietQR readers (solid edges, no sub-cell gaps).
  *
  * Trade-offs:
  *   - Quiet zone is 1 module instead of the spec's 4. Bank scanners read fine
@@ -16,16 +21,11 @@ import QRCode from 'qrcode';
 const QUIET_ZONE = 1;
 
 /**
- * 16 Unicode codepoints, indexed by a 4-bit mask where:
- *   bit 0 = top-left, bit 1 = top-right, bit 2 = bottom-left, bit 3 = bottom-right.
- * A `1` bit means that quadrant is filled (dark module).
+ * 4 half-block glyphs indexed by a 2-bit mask where:
+ *   bit 0 = top module, bit 1 = bottom module.
+ * A `1` bit means that module is dark.
  */
-const QUADRANT_GLYPHS = [
-  ' ', '▘', '▝', '▀',
-  '▖', '▌', '▞', '▛',
-  '▗', '▚', '▐', '▜',
-  '▄', '▙', '▟', '█',
-];
+const HALF_BLOCK_GLYPHS = [' ', '▀', '▄', '█'];
 
 /** Returns 1 if the module at (row, col) is dark, 0 otherwise. Out-of-bounds = 0 (light). */
 function moduleAt(modules: Uint8Array, size: number, row: number, col: number): number {
@@ -34,7 +34,7 @@ function moduleAt(modules: Uint8Array, size: number, row: number, col: number): 
 }
 
 /** Renders the QR as an array of strings, one per text row. */
-export function renderQrQuadrant(payload: string): string[] {
+export function renderQrTerminal(payload: string): string[] {
   const qr = QRCode.create(payload, { errorCorrectionLevel: 'L' });
   const size: number = qr.modules.size;
   const data: Uint8Array = qr.modules.data;
@@ -42,16 +42,14 @@ export function renderQrQuadrant(payload: string): string[] {
   const padded = size + QUIET_ZONE * 2;
   const lines: string[] = [];
 
-  // Step by 2 so each text row covers 2 module rows.
+  // Step rows by 2 (two stacked modules per char), columns by 1 (one module per char).
   for (let r = 0; r < padded; r += 2) {
     let line = '';
-    for (let c = 0; c < padded; c += 2) {
-      const tl = moduleAt(data, size, r - QUIET_ZONE,     c - QUIET_ZONE);
-      const tr = moduleAt(data, size, r - QUIET_ZONE,     c - QUIET_ZONE + 1);
-      const bl = moduleAt(data, size, r - QUIET_ZONE + 1, c - QUIET_ZONE);
-      const br = moduleAt(data, size, r - QUIET_ZONE + 1, c - QUIET_ZONE + 1);
-      const mask = tl | (tr << 1) | (bl << 2) | (br << 3);
-      line += QUADRANT_GLYPHS[mask];
+    for (let c = 0; c < padded; c++) {
+      const top = moduleAt(data, size, r - QUIET_ZONE, c - QUIET_ZONE);
+      const bottom = moduleAt(data, size, r - QUIET_ZONE + 1, c - QUIET_ZONE);
+      const mask = top | (bottom << 1);
+      line += HALF_BLOCK_GLYPHS[mask];
     }
     lines.push(line);
   }

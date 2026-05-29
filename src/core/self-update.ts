@@ -21,7 +21,7 @@ const PKG_NAME = '@ccsk/cli';
  * missing license model, oversized payment QRs). Pinning the floor here keeps
  * users from accidentally downgrading into those known-bad states.
  */
-const MIN_SUPPORTED_VERSION = '1.0.6';
+const MIN_SUPPORTED_VERSION = '1.0.7';
 
 type PkgManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 

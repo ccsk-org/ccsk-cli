@@ -10,7 +10,7 @@
  */
 import { QRPay } from 'vietnam-qr-pay';
 import { log } from '../util/log.js';
-import { renderQrQuadrant } from '../util/qr-quadrant.js';
+import { renderQrTerminal } from '../util/qr-terminal.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import { getPaymentConfig } from './payment-config.js';
 const SUPABASE_URL = 'https://qorrssuqkblahzzlonhz.supabase.co';
@@ -46,7 +46,7 @@ function buildVietQRUrl(bank, amount, memo) {
     return `https://api.vietqr.io/image/${bank.bin}-${bank.account_number}-i7ISzDh.jpg?${params.toString()}`;
 }
 function renderQrLines(content) {
-    return renderQrQuadrant(content);
+    return renderQrTerminal(content);
 }
 function padRight(line, width) {
     if (line.length >= width)

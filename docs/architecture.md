@@ -20,15 +20,17 @@ src/
 │   ├── remove-kit.ts         # inverse of copy-kit (used by `ccsk uninstall`)
 │   ├── license.ts            # Supabase license validation + free auto-register + paid menu
 │   ├── payment-config.ts     # Supabase `get-payment-config` (banks + lifetime price)
-│   ├── vietqr.ts             # EMVCo VietQR payload + terminal QR + side-by-side render
+│   ├── vietqr.ts             # EMVCo VietQR payload + terminal QR (util/qr-terminal.ts) + side-by-side render
 │   ├── pkg-manager.ts        # detect global owner of @ccsk/cli, run remove cross-PM
 │   ├── github-auth.ts        # `gh` / SSH detection for private kit repos
-│   ├── self-update.ts        # `npm/pnpm/yarn/bun install -g @ccsk/cli@latest`
+│   ├── self-update.ts        # `npm/pnpm/yarn/bun install -g @ccsk/cli@<ver>`; enforces a min-supported-version floor
 │   └── setup-runner.ts       # optional post-install tool setup
 └── util/
     ├── banner.ts             # pixel-block "ccsk" gradient wordmark
     ├── log.ts                # picocolors-based log helpers
     ├── platform.ts           # OS detection, homeDir(), binExists() (uses `where`/`which`)
+    ├── qr-terminal.ts        # half-block QR renderer (1×2 modules/char → square output)
+    ├── gitignore-sync.ts     # create/merge/replace the ccsk-managed .gitignore block
     └── shimmer-spinner.ts    # braille spinner + lavender→teal shimmer + elapsed timer
 ```
 
@@ -46,8 +48,10 @@ src/
    - Buy → `vietqr.ts` builds EMVCo payload (`vietnam-qr-pay`) + image URL, prints two QR codes.
 4. **GitHub auth** (`core/github-auth.ts`) — prefers SSH; falls back to `gh` token.
 5. **Fetch kit** (`core/kit-fetcher.ts`) — `git clone --depth 1 --branch v<X>` into `~/.ccsk/kits/<kit>/<version>`. Shallow + `.git` stripped after success. Wrapped in `withShimmer`.
-6. **Copy** (`core/copy-kit.ts`) — confirm overwrite, copy from cache into target.
-7. **Optional setup** (`core/setup-runner.ts`) — install Claude/Serena/RTK MCPs.
+6. **Copy** (`core/copy-kit.ts`) — confirm overwrite, copy from cache into target. `_dot_X` path segments map to `.X` (e.g. `_dot_claude/commands/ccsk-bootstrap.md` → `.claude/commands/ccsk-bootstrap.md`).
+7. **Sync .gitignore** (`util/gitignore-sync.ts`) — create/merge/replace the ccsk-managed ignore block in the target.
+8. **Optional setup** (`core/setup-runner.ts`) — install Claude/Serena/RTK MCPs.
+9. **Next steps** (`commands/init.ts → printNextSteps`) — prints `cd`, `claude`, and the `/ccsk-bootstrap <intent>` guide shipped inside the kit.
 
 ## `ccsk uninstall` data flow
 

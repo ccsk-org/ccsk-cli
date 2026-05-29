@@ -38,14 +38,14 @@ This README is the official user documentation. For architecture details see [`d
 
 ## What is ccsk?
 
-`ccsk` solves the *cold-start* problem for a Claude Code project. Instead of hand-rolling `CLAUDE.md`, agent definitions, rules, and documentation skeletons every time, `ccsk init` lays down a vetted starter pack — a **kit** — and exits cleanly. From the kit, `/ccsk:bootstrap` (a slash command shipped *inside* the kit) interviews you, resolves current stack versions, and produces tech-stack docs, architecture, and a multi-phase implementation plan tailored to your project.
+`ccsk` solves the *cold-start* problem for a Claude Code project. Instead of hand-rolling `CLAUDE.md`, agent definitions, rules, and documentation skeletons every time, `ccsk init` lays down a vetted starter pack — a **kit** — and exits cleanly. From the kit, `/ccsk-bootstrap` (a slash command shipped *inside* the kit) interviews you, resolves current stack versions, and produces tech-stack docs, architecture, and a multi-phase implementation plan tailored to your project.
 
 A kit contains:
 
 - `CLAUDE.md` — the project-level instruction file Claude Code reads first.
 - `.claude/rules/` — non-negotiable workflow rules (development, documentation, technical-stacks template).
 - `.claude/agents/` — sub-agent definitions (code-reviewer, debugger, etc.).
-- `.claude/commands/` — slash commands, including `bootstrap` (canonical name `ccsk:bootstrap`).
+- `.claude/commands/` — slash commands, including `/ccsk-bootstrap`.
 - `docs/` — documentation skeleton (code standards, architecture, PDR, roadmap).
 - `.mcp.json` + `.ccsk/` — MCP server config and per-project ccsk metadata.
 
@@ -67,7 +67,7 @@ ccsk init
 claude
 
 # 5. Bootstrap your stack, architecture, and plan
-/bootstrap B2B HR SaaS for VN SMEs   # canonical name: ccsk:bootstrap
+/ccsk-bootstrap B2B HR SaaS for VN SMEs
 ```
 
 That's the 60-second path. The free `common` kit auto-registers a license on first run; paid kits go through the in-CLI VietQR purchase flow.
@@ -104,7 +104,7 @@ Required to clone kit repos. `ccsk auth` detects SSH (`ssh -T git@github.com`) a
 Downloaded kits are cached locally and reused on subsequent installs. `--force` re-clones; `ccsk cache --clear` purges.
 
 ### Bootstrap (slash command)
-Shipped inside every kit at `.claude/commands/bootstrap.md` (canonical name `ccsk:bootstrap`). After `ccsk init`, open Claude Code and run `/bootstrap <intent>` — it interviews you, verifies current stack versions via `context7`/`docs-seeker`, and writes `docs/`, `CLAUDE.md` updates (surgically), and a phased `plans/` directory.
+Shipped inside every kit at `.claude/commands/ccsk-bootstrap.md`. After `ccsk init`, open Claude Code and run `/ccsk-bootstrap <intent>` — it interviews you, verifies current stack versions via `context7`/`docs-seeker`, and writes `docs/`, `CLAUDE.md` updates (surgically), and a phased `plans/` directory.
 
 ---
 
@@ -127,7 +127,7 @@ On success, prints:
 Next:
   cd <path>
   claude                       # open Claude Code in this project
-  /bootstrap <one-line>        # canonical name: ccsk:bootstrap → tech-stacks, architecture, docs, plan
+  /ccsk-bootstrap <one-line>   # → tech-stacks, architecture, docs, plan
 ```
 
 ### `ccsk auth`
@@ -177,7 +177,7 @@ Two-stage cleanup, both stages confirmed independently:
 
 | Kit | Status | What you get |
 | --- | --- | --- |
-| `common` | ✅ Stable · Free | Base Claude Code config: foundational rules, generic sub-agents, the `bootstrap` slash command (canonical name `ccsk:bootstrap`), MCP scaffold, and a documentation skeleton. Always free. |
+| `common` | ✅ Stable · Free | Base Claude Code config: foundational rules, generic sub-agents, the `/ccsk-bootstrap` slash command, MCP scaffold, and a documentation skeleton. Always free. |
 | `frontend` | ✅ Stable · Paid | Everything in `common`, plus production-grade workflows, multi-agent orchestrations, harness-tuned prompts, opinionated sub-agents, and domain-specific rules built for shipping real software. |
 | `backend` | 🟡 Coming soon · Paid | Same depth as `frontend`, tuned for server-side work. |
 | `mobile`   | 🟡 Coming soon · Paid | Same depth as `frontend`, tuned for mobile platforms. |
@@ -297,7 +297,7 @@ Source in `src/`, compiled to `dist/`. Supabase migrations + Edge Functions live
 
 ## Architecture (one paragraph)
 
-A thin Node CLI (`commander` + `@clack/prompts`) reads kit metadata from a static registry, calls Supabase Edge Functions for license validation and payment reservation, falls back to embedded defaults when offline, clones the matching private repo with the user's existing GitHub credentials, and copies the result into the target directory with a small set of name transforms. The `bootstrap` slash command (canonical name `ccsk:bootstrap`) lives inside each kit (not in the CLI) so it stays versioned with kit conventions. See [`docs/architecture.md`](./docs/architecture.md) for module-level detail.
+A thin Node CLI (`commander` + `@clack/prompts`) reads kit metadata from a static registry, calls Supabase Edge Functions for license validation and payment reservation, falls back to embedded defaults when offline, clones the matching private repo with the user's existing GitHub credentials, and copies the result into the target directory with a small set of name transforms. The `/ccsk-bootstrap` slash command lives inside each kit (not in the CLI) so it stays versioned with kit conventions. See [`docs/architecture.md`](./docs/architecture.md) for module-level detail.
 
 ---
 

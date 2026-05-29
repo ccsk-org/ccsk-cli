@@ -119,9 +119,9 @@ function printNextSteps(targetAbs: string): void {
   log.info('Next:');
   log.info(`  cd ${rel}`);
   log.info('  claude                       # open Claude Code in this project');
-  log.info('  /bootstrap <one-line>        # canonical name: ccsk:bootstrap → tech-stacks, architecture, docs, plan');
+  log.info('  /ccsk-bootstrap <one-line>   # → tech-stacks, architecture, docs, plan');
   log.info('');
-  log.hint('Examples: `/bootstrap B2B HR SaaS for VN SMEs` · `/bootstrap` (no args = interview-only)');
+  log.hint('Examples: `/ccsk-bootstrap B2B HR SaaS for VN SMEs` · `/ccsk-bootstrap` (no args = interview-only)');
 }
 
 async function selectKit(yes: boolean): Promise<KitMeta | null> {
