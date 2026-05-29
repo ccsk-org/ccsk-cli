@@ -1,7 +1,34 @@
+# Dependencies
 node_modules/
-.serena/
+
+# Build output — rebuilt by `npm run build` / the `prepare` script;
+# shipped to npm via package.json "files", not from git.
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
 *.log
+npm-debug.log*
+
+# Lockfiles — npm is canonical (CI uses `npm ci` + package-lock.json)
+bun.lock
+pnpm-lock.yaml
+yarn.lock
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
+
+# Env / secrets
+.env
+.env.*
+
+# Tooling
+.serena/
 
 # Operator-only migration: license-confirmation helpers (personal admin SQL)
 supabase/migrations/004_operator_helpers.sql

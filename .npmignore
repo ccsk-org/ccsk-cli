@@ -1,0 +1,11 @@
+# This file exists so npm does NOT fall back to .gitignore when packing the
+# tarball. Without it, the gitignored-but-required dist/ would be excluded from
+# the published package. The package.json "files" allowlist governs what ships;
+# the entries below just keep dev-only sources out of the tarball.
+src/
+supabase/
+docs/
+plans/
+.github/
+tsconfig.json
+*.tsbuildinfo
