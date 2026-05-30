@@ -193,12 +193,9 @@ export async function validateLicenseForKit(kitId: string): Promise<LicenseResul
     }
   }
 
-  // Free kit: auto-register.
+  // Free kit: never prompt. Auto-(re)register if no valid license.
   if (!isPaidKit) {
-    if (!savedKey) {
-      return withShimmer('Activating free license…', () => registerFreeLicense());
-    }
-    // Has key but it failed validation for the free kit — fall through to manual entry.
+    return withShimmer('Activating free license…', () => registerFreeLicense());
   }
 
   // Paid kit: present 3-option menu.
