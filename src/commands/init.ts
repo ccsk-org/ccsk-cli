@@ -20,6 +20,7 @@ import { ensureGitHubAuth } from '../core/github-auth.js';
 import { fetchKit } from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
 import { runSetup } from '../core/setup-runner.js';
+import { runDesignSetup } from './design.js';
 import { printBanner } from '../util/banner.js';
 import { ensureCcskGitignoreBlock } from '../util/gitignore-sync.js';
 import { log } from '../util/log.js';
@@ -103,6 +104,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
   if (opts.setup && (opts.yes || await confirmSetup())) {
     await runSetup(targetAbs);
   }
+
+  // 8. Optional design reference
+  await runDesignSetup({ targetPath: targetAbs, yes: opts.yes });
 
   log.success('Done. Open the project in Claude Code to get started.');
   printNextSteps(targetAbs);
