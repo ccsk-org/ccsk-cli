@@ -4,8 +4,7 @@
   "description": "Claude Code Starter Kit CLI — scaffold Claude-ready projects in one command",
   "type": "module",
   "bin": {
-    "ccsk": "bin/ccsk.js",
-    "ccski": "bin/ccsk.js"
+    "ccsk": "bin/ccsk.js"
   },
   "files": [
     "dist",
