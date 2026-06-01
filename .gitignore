@@ -32,3 +32,21 @@ yarn.lock
 
 # Operator-only migration: license-confirmation helpers (personal admin SQL)
 supabase/migrations/004_operator_helpers.sql
+
+# ----- ccsk gitignore -----
+.ccsk/
+.claude/
+.specify/
+.bmad/
+.agents/
+.rtk/
+.serena/
+.planning/
+
+plans/
+docs/
+_bmad-output/
+
+AGENTS.md
+CLAUDE.md
+# ----- ccsk gitignore -----
