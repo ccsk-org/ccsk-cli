@@ -105,8 +105,10 @@ export async function runInit(opts: InitOptions): Promise<void> {
     await runSetup(targetAbs);
   }
 
-  // 8. Optional design reference
-  await runDesignSetup({ targetPath: targetAbs, yes: opts.yes });
+  // 8. Optional design reference (frontend kit only)
+  if (kit.id === 'frontend') {
+    await runDesignSetup({ targetPath: targetAbs, yes: opts.yes });
+  }
 
   log.success('Done. Open the project in Claude Code to get started.');
   printNextSteps(targetAbs);
