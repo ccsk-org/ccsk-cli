@@ -4,6 +4,7 @@
 
 import { makeProgress } from '../util/progress.js';
 import { log, pc } from '../util/log.js';
+import { ensureGhCli } from './gh-cli.js';
 import { ensureRtk } from './rtk.js';
 import { addContextModeMcp, printContextModeInstructions } from './context-mode.js';
 import type { StepResult } from './step-result.js';
@@ -14,6 +15,7 @@ import type { StepResult } from './step-result.js';
  */
 export async function runSetup(targetAbs: string): Promise<StepResult[]> {
   const steps: Array<() => Promise<StepResult> | StepResult> = [
+    () => ensureGhCli(),
     () => ensureRtk(),
     () => addContextModeMcp(),
     () => printContextModeInstructions(),
