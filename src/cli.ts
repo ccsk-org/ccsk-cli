@@ -12,6 +12,7 @@ import { runAuth } from './commands/auth.js';
 import { runCache } from './commands/cache.js';
 import { runUpdate } from './commands/update.js';
 import { runDesign } from './commands/design.js';
+import { runDoctor } from './commands/doctor.js';
 import { log } from './util/log.js';
 
 function readPackageVersion(): string {
@@ -95,6 +96,13 @@ program
   .argument('[path]', 'target directory (defaults to current)', '.')
   .action(async (targetPath: string) => {
     await guard(() => runDesign({ targetPath, yes: false }));
+  });
+
+program
+  .command('doctor')
+  .description('Diagnose a broken ccsk install or environment')
+  .action(async () => {
+    await guard(() => runDoctor());
   });
 
 program

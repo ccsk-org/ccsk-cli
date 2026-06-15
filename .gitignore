@@ -50,3 +50,7 @@ _bmad-output/
 AGENTS.md
 CLAUDE.md
 # ----- ccsk gitignore -----
+
+# ----- add gitignore -----
+.add/
+# ----- add gitignore -----
