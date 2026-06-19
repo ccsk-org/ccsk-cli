@@ -1,5 +1,6 @@
 /**
  * ccsk CLI entry point.
+ * Single kit architecture: no kit selection, simplified commands.
  */
 
 import fs from 'node:fs';
@@ -12,6 +13,8 @@ import { runAuth } from './commands/auth.js';
 import { runCache } from './commands/cache.js';
 import { runUpdate } from './commands/update.js';
 import { runDesign } from './commands/design.js';
+import { runDoctor } from './commands/doctor.js';
+import { runDonate } from './commands/donate.js';
 import { log } from './util/log.js';
 
 function readPackageVersion(): string {
@@ -34,9 +37,8 @@ program
 
 program
   .command('init')
-  .description('Install a Claude Code starter kit into a project')
+  .description('Install the Claude Code Starter Kit into a project')
   .argument('[path]', 'target directory (defaults to current)', '.')
-  .option('-k, --kit <name>', 'kit to install (common, frontend, backend, mobile)')
   .option('--version <ver>', 'kit version to install')
   .option('--force', 'force re-download even if cached', false)
   .option('--no-setup', 'skip the tool setup (RTK-AI, context-mode)')
@@ -45,7 +47,6 @@ program
     await guard(() =>
       runInit({
         targetPath,
-        kit: opts.kit,
         version: opts.version,
         force: !!opts.force,
         setup: opts.setup !== false,
@@ -72,15 +73,13 @@ program
 program
   .command('cache')
   .description('Manage downloaded kit cache')
-  .option('-k, --kit <name>', 'kit to download or clear')
-  .option('--version <ver>', 'specific version')
-  .option('-l, --list', 'list cached kits', false)
-  .option('--clear', 'clear cache for specified kit', false)
-  .option('--clear-all', 'clear all cached kits', false)
+  .option('--version <ver>', 'specific version to download or clear')
+  .option('-l, --list', 'list cached versions', false)
+  .option('--clear', 'clear cache', false)
+  .option('--clear-all', 'clear all cached versions', false)
   .action(async (opts) => {
     await guard(() =>
       runCache({
-        kit: opts.kit,
         version: opts.version,
         list: !!opts.list,
         clear: !!opts.clear,
@@ -95,6 +94,20 @@ program
   .argument('[path]', 'target directory (defaults to current)', '.')
   .action(async (targetPath: string) => {
     await guard(() => runDesign({ targetPath, yes: false }));
+  });
+
+program
+  .command('doctor')
+  .description('Diagnose a broken ccsk install or environment')
+  .action(async () => {
+    await guard(() => runDoctor());
+  });
+
+program
+  .command('donate')
+  .description('Support the project with a coffee via VietQR')
+  .action(async () => {
+    await guard(() => runDonate());
   });
 
 program

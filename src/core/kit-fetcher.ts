@@ -1,5 +1,6 @@
 /**
- * Kit fetcher — clone kits from GitHub to local cache.
+ * Kit fetcher — clone the ccsk-kit from GitHub to local cache.
+ * Single kit: ccsk-org/ccsk-kit
  */
 
 import fs from 'node:fs';
@@ -9,7 +10,9 @@ import { log } from '../util/log.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import { detectAuthMethod, getCloneUrl } from './github-auth.js';
 import { getCachePath, ensureCacheDirs, isCached } from './kit-cache.js';
-import type { KitMeta } from './kit-registry.js';
+
+const KIT_REPO = 'ccsk-org/ccsk-kit';
+const DEFAULT_VERSION = '1.0.0';
 
 export interface FetchOptions {
   force?: boolean;
@@ -19,54 +22,48 @@ export interface FetchOptions {
 export interface FetchResult {
   success: boolean;
   cachePath: string;
-  /** Resolved version actually used (latest tag or `--version` pin). Always set, even on failure. */
   version: string;
   fromCache: boolean;
   error?: string;
 }
 
-/** Fetch a kit to the local cache. Returns the cache path. */
-export async function fetchKit(
-  kit: KitMeta,
-  options: FetchOptions = {}
-): Promise<FetchResult> {
-  // Auth must come before version resolution: SSH/HTTPS clone URL feeds both
-  // `git ls-remote` (fallback resolver) and the final clone.
+/** Fetch the kit to local cache. Returns the cache path. */
+export async function fetchKit(options: FetchOptions = {}): Promise<FetchResult> {
   ensureCacheDirs();
   const auth = await detectAuthMethod();
+
   if (auth.method === 'none') {
-    const fallbackVersion = options.version ?? kit.defaultVersion;
+    const fallbackVersion = options.version ?? DEFAULT_VERSION;
     return {
       success: false,
-      cachePath: getCachePath(kit.id, fallbackVersion),
+      cachePath: getCachePath(fallbackVersion),
       version: fallbackVersion,
       fromCache: false,
       error: 'GitHub authentication required. Run ccsk auth for setup instructions.',
     };
   }
-  const cloneUrl = getCloneUrl(kit.repo, auth.method);
 
-  // Resolve which version to install. Explicit `--version` wins. Otherwise we
-  // ask the remote for the latest tag so a re-run of `ccsk init` picks up a
-  // new kit release without the user needing `--force`. If both `gh` and
-  // `git ls-remote` fail (offline), fall back to the registry's baseline.
+  const cloneUrl = getCloneUrl(KIT_REPO, auth.method);
+
+  // Resolve version: explicit flag → latest tag → fallback
   let version: string;
   if (options.version) {
     version = options.version;
   } else {
-    const resolved = await resolveLatestVersion(kit, cloneUrl);
-    version = resolved ?? kit.defaultVersion;
+    const resolved = await resolveLatestVersion(cloneUrl);
+    version = resolved ?? DEFAULT_VERSION;
     if (resolved) {
-      log.info(`Latest ${kit.label} release: v${resolved}`);
+      log.info(`Latest kit release: v${resolved}`);
     } else {
-      log.warn(`Could not resolve latest version for ${kit.label}; using fallback v${version}.`);
+      log.warn(`Could not resolve latest version; using fallback v${version}.`);
     }
   }
-  const cachePath = getCachePath(kit.id, version);
 
-  // Check cache after resolution so a new upstream tag bypasses stale entries.
-  if (!options.force && isCached(kit.id, version)) {
-    log.info(`Using cached ${kit.label} kit v${version}`);
+  const cachePath = getCachePath(version);
+
+  // Check cache after resolution so new upstream tags bypass stale entries
+  if (!options.force && isCached(version)) {
+    log.info(`Using cached kit v${version}`);
     return { success: true, cachePath, version, fromCache: true };
   }
 
@@ -79,8 +76,7 @@ export async function fetchKit(
   fs.mkdirSync(path.dirname(cachePath), { recursive: true });
 
   try {
-    await withShimmer(`Downloading ${kit.label} v${version}…`, async () => {
-      // Clone with depth 1 for efficiency
+    await withShimmer(`Downloading kit v${version}…`, async () => {
       await execa('git', [
         'clone',
         '--depth', '1',
@@ -105,14 +101,13 @@ export async function fetchKit(
 
     const message = err instanceof Error ? err.message : String(err);
 
-    // Check for common errors
     if (message.includes('could not find remote branch') || message.includes('did not match any')) {
       return {
         success: false,
         cachePath,
         version,
         fromCache: false,
-        error: `Version v${version} not found for ${kit.label} kit. Check available versions.`,
+        error: `Version v${version} not found. Check available versions.`,
       };
     }
 
@@ -122,7 +117,7 @@ export async function fetchKit(
         cachePath,
         version,
         fromCache: false,
-        error: `Access denied to ${kit.label} kit. Ensure your license includes this kit and you have GitHub access.`,
+        error: 'Access denied to kit repo. Ensure you have GitHub access configured.',
       };
     }
 
@@ -138,23 +133,19 @@ export async function fetchKit(
 
 /**
  * Resolve the kit's latest released version.
- *
- * Tries `gh api releases/latest` first (cheapest, exact semantic), then falls
- * back to `git ls-remote --tags` so the resolver works for users on SSH-only
- * setups without `gh` installed. Returns `null` if both paths fail so the
- * caller can drop to the registry baseline.
+ * Tries `gh api releases/latest` first, then `git ls-remote --tags`.
  */
-export async function resolveLatestVersion(kit: KitMeta, cloneUrl: string): Promise<string | null> {
-  const viaGh = await resolveViaGhRelease(kit);
+async function resolveLatestVersion(cloneUrl: string): Promise<string | null> {
+  const viaGh = await resolveViaGhRelease();
   if (viaGh) return viaGh;
   return resolveViaGitTags(cloneUrl);
 }
 
-async function resolveViaGhRelease(kit: KitMeta): Promise<string | null> {
+async function resolveViaGhRelease(): Promise<string | null> {
   try {
     const { exitCode, stdout } = await execa(
       'gh',
-      ['api', `repos/${kit.repo}/releases/latest`, '--jq', '.tag_name'],
+      ['api', `repos/${KIT_REPO}/releases/latest`, '--jq', '.tag_name'],
       { reject: false, timeout: 10_000 },
     );
     if (exitCode !== 0) return null;
@@ -173,7 +164,6 @@ async function resolveViaGitTags(cloneUrl: string): Promise<string | null> {
     );
     if (exitCode !== 0) return null;
 
-    // Each line: "<sha>\trefs/tags/<tag>"
     const tags: string[] = [];
     for (const line of stdout.split('\n')) {
       const ref = line.split('\t')[1];
@@ -199,3 +189,7 @@ function compareSemver(a: string, b: string): number {
   const [b1, b2, b3] = b.split('.').map(Number);
   return a1 - b1 || a2 - b2 || a3 - b3;
 }
+
+/** Export repo and default version for other modules */
+export const KIT_LABEL = 'Claude Code Starter Kit';
+export { KIT_REPO, DEFAULT_VERSION };

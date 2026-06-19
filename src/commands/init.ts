@@ -1,24 +1,17 @@
 /**
- * ccsk init — select kit, validate license, fetch from GitHub, copy to target.
+ * ccsk init — confirm, fetch kit from GitHub, copy to target, prompt donate.
+ * Single kit architecture: no kit selection, no license gating.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { select, confirm, isCancel, cancel } from '@clack/prompts';
-import {
-  KIT_REGISTRY,
-  formatKitPrice,
-  getKitMeta,
-  getEnabledKits,
-  isKitEnabled,
-  type KitMeta,
-} from '../core/kit-registry.js';
-import { validateLicenseForKit } from '../core/license.js';
-import { getPaymentConfig } from '../core/payment-config.js';
+import { confirm, isCancel, cancel } from '@clack/prompts';
 import { ensureGitHubAuth } from '../core/github-auth.js';
-import { fetchKit } from '../core/kit-fetcher.js';
+import { fetchKit, KIT_LABEL } from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
+import { registerInstall } from '../core/install-tracker.js';
+import { promptDonateAfterInit } from '../core/donation.js';
 import { runSetup } from '../core/setup-runner.js';
 import { runDesignSetup } from './design.js';
 import { printBanner } from '../util/banner.js';
@@ -46,7 +39,6 @@ export interface InitOptions {
   targetPath: string;
   setup: boolean;
   yes: boolean;
-  kit?: string;
   version?: string;
   force?: boolean;
 }
@@ -54,27 +46,27 @@ export interface InitOptions {
 export async function runInit(opts: InitOptions): Promise<void> {
   printBanner({ ...BANNER_META, version: readVersion() });
 
-  // 1. Select kit
-  const kit = opts.kit ? getKitMeta(opts.kit) : await selectKit(opts.yes);
-  if (!kit) return;
+  // 1. Confirm installation
+  if (!opts.yes) {
+    const shouldInstall = await confirm({
+      message: `Install ${KIT_LABEL}?`,
+      initialValue: true,
+    });
 
-  // 2. Validate license for this kit (handles free auto-register + 3-option paid menu).
-  // The shimmer spinner is shown inside validateLicenseForKit around each network call.
-  const licenseResult = await validateLicenseForKit(kit.id);
-
-  if (!licenseResult.valid) {
-    log.info(licenseResult.reason);
-    process.exit(1);
+    if (isCancel(shouldInstall) || !shouldInstall) {
+      cancel('Cancelled — no files were written.');
+      return;
+    }
   }
 
-  // 3. Ensure GitHub auth
+  // 2. Ensure GitHub auth (required to clone kit repo)
   const auth = await ensureGitHubAuth();
   if (auth.method === 'none') {
     process.exit(1);
   }
 
-  // 4. Fetch kit (from cache or clone)
-  const fetchResult = await fetchKit(kit, {
+  // 3. Fetch kit (from cache or clone)
+  const fetchResult = await fetchKit({
     version: opts.version,
     force: opts.force,
   });
@@ -84,6 +76,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
     process.exit(1);
   }
 
+  // 4. Register install (capture GitHub + optional email for tracking)
+  await registerInstall(fetchResult.version);
+
   // 5. Confirm overwrite and copy
   const targetAbs = path.resolve(process.cwd(), opts.targetPath);
 
@@ -92,11 +87,11 @@ export async function runInit(opts: InitOptions): Promise<void> {
     return;
   }
 
-  log.step(`Installing "${kit.label}" kit into ${targetAbs}`);
+  log.step(`Installing kit v${fetchResult.version} into ${targetAbs}`);
   const written = await copyKit(fetchResult.cachePath, targetAbs);
   log.success(`Copied: ${written.join(', ')}`);
 
-  // 6. Sync the ccsk-managed .gitignore block (create / merge / replace).
+  // 6. Sync the ccsk-managed .gitignore block
   const gitignoreAction = ensureCcskGitignoreBlock(targetAbs);
   log.success(`Synced .gitignore (${gitignoreAction} ccsk-managed block)`);
 
@@ -110,13 +105,14 @@ export async function runInit(opts: InitOptions): Promise<void> {
 
   log.success('Done. Open the project in Claude Code to get started.');
   printNextSteps(targetAbs);
+
+  // 9. Prompt for donation (only in interactive mode)
+  if (!opts.yes) {
+    log.info('');
+    await promptDonateAfterInit();
+  }
 }
 
-/**
- * Post-init guidance. Shown after a successful kit install so the user knows
- * the exact next command to bootstrap their tech stack + architecture + plan
- * via the slash command shipped inside the kit.
- */
 function printNextSteps(targetAbs: string): void {
   const rel = path.relative(process.cwd(), targetAbs) || '.';
   log.info('');
@@ -128,56 +124,9 @@ function printNextSteps(targetAbs: string): void {
   log.hint('Examples: `/ccsk-bootstrap B2B HR SaaS for VN SMEs` · `/ccsk-bootstrap` (no args = interview-only)');
 }
 
-async function selectKit(yes: boolean): Promise<KitMeta | null> {
-  const enabledKits = getEnabledKits();
-
-  if (yes) {
-    return enabledKits[0] ?? null;
-  }
-
-  // Aligned-column picker. Price is sourced from Supabase `payment-config` so
-  // operators can re-price all paid kits without a CLI release; getPaymentConfig
-  // caches the response for the process lifetime and falls back to a baked-in
-  // value if the service is unreachable.
-  const { lifetime_price_vnd } = await getPaymentConfig();
-  const labelled = KIT_REGISTRY.map((k) => ({ kit: k, price: formatKitPrice(k, lifetime_price_vnd) }));
-
-  const nameWidth = Math.max(...labelled.map(({ kit }) => kit.label.length));
-  const priceWidth = Math.max(...labelled.map(({ price }) => price.length));
-  const dotsTotal = 4; // minimum dot run between name and price
-  const fmt = (kit: KitMeta, price: string): string => {
-    const dots = '.'.repeat(Math.max(dotsTotal, nameWidth + dotsTotal - kit.label.length));
-    return `${kit.label} ${dots} ${price.padStart(priceWidth)}`;
-  };
-
-  const choice = await select({
-    message: 'Which kit do you want to install?',
-    initialValue: 'frontend',
-    options: labelled.map(({ kit, price }) => ({
-      value: kit.id,
-      label: fmt(kit, price),
-      hint: kit.description,
-    })),
-  });
-
-  if (isCancel(choice)) {
-    cancel('Cancelled.');
-    return null;
-  }
-
-  const kit = getKitMeta(choice as string);
-  if (!kit || !isKitEnabled(kit.id)) {
-    log.warn(`The "${kit?.label ?? choice}" kit is coming soon.`);
-    return null;
-  }
-
-  return kit;
-}
-
 async function confirmOverwrite(targetAbs: string, yes: boolean): Promise<boolean> {
   if (yes) return true;
 
-  // Check if target has existing files
   if (fs.existsSync(targetAbs)) {
     const entries = fs.readdirSync(targetAbs);
     const kitFiles = entries.filter((e) =>

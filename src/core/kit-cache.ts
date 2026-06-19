@@ -1,5 +1,6 @@
 /**
- * Kit cache management — ~/.ccsk/kits/{kit-id}/{version}/
+ * Kit cache management — ~/.ccsk/kit/{version}/
+ * Single kit architecture: no kit ID in path.
  */
 
 import fs from 'node:fs';
@@ -7,10 +8,9 @@ import path from 'node:path';
 import { homeDir } from '../util/platform.js';
 
 const CCSK_DIR = path.join(homeDir(), '.ccsk');
-const KITS_DIR = path.join(CCSK_DIR, 'kits');
+const KIT_DIR = path.join(CCSK_DIR, 'kit');
 
-export interface CachedKit {
-  kitId: string;
+export interface CachedVersion {
   version: string;
   path: string;
   sizeBytes: number;
@@ -18,17 +18,17 @@ export interface CachedKit {
 
 /** Ensure the ccsk directories exist. */
 export function ensureCacheDirs(): void {
-  fs.mkdirSync(KITS_DIR, { recursive: true });
+  fs.mkdirSync(KIT_DIR, { recursive: true });
 }
 
-/** Get the cache path for a specific kit version. */
-export function getCachePath(kitId: string, version: string): string {
-  return path.join(KITS_DIR, kitId, version);
+/** Get the cache path for a specific version. */
+export function getCachePath(version: string): string {
+  return path.join(KIT_DIR, version);
 }
 
-/** Check if a kit version is cached. */
-export function isCached(kitId: string, version: string): boolean {
-  const cachePath = getCachePath(kitId, version);
+/** Check if a version is cached. */
+export function isCached(version: string): boolean {
+  const cachePath = getCachePath(version);
   return fs.existsSync(cachePath);
 }
 
@@ -51,64 +51,49 @@ function getDirSize(dirPath: string): number {
   return size;
 }
 
-/** List all cached kits. */
-export function listCachedKits(): CachedKit[] {
-  const result: CachedKit[] = [];
+/** List all cached versions. */
+export function listCachedVersions(): CachedVersion[] {
+  const result: CachedVersion[] = [];
 
-  if (!fs.existsSync(KITS_DIR)) {
+  if (!fs.existsSync(KIT_DIR)) {
     return result;
   }
 
-  const kitDirs = fs.readdirSync(KITS_DIR, { withFileTypes: true });
-  for (const kitDir of kitDirs) {
-    if (!kitDir.isDirectory()) continue;
+  const versionDirs = fs.readdirSync(KIT_DIR, { withFileTypes: true });
+  for (const versionDir of versionDirs) {
+    if (!versionDir.isDirectory()) continue;
 
-    const kitId = kitDir.name;
-    const kitPath = path.join(KITS_DIR, kitId);
-    const versionDirs = fs.readdirSync(kitPath, { withFileTypes: true });
+    const version = versionDir.name;
+    const versionPath = path.join(KIT_DIR, version);
 
-    for (const versionDir of versionDirs) {
-      if (!versionDir.isDirectory()) continue;
-
-      const version = versionDir.name;
-      const versionPath = path.join(kitPath, version);
-
-      result.push({
-        kitId,
-        version,
-        path: versionPath,
-        sizeBytes: getDirSize(versionPath),
-      });
-    }
+    result.push({
+      version,
+      path: versionPath,
+      sizeBytes: getDirSize(versionPath),
+    });
   }
 
   return result;
 }
 
-/** Clear cached kit (all versions or specific version). */
-export function clearCache(kitId: string, version?: string): boolean {
+/** Clear cached version (specific or all). */
+export function clearCache(version?: string): boolean {
   if (version) {
-    const cachePath = getCachePath(kitId, version);
+    const cachePath = getCachePath(version);
     if (fs.existsSync(cachePath)) {
       fs.rmSync(cachePath, { recursive: true });
       return true;
     }
-  } else {
-    const kitPath = path.join(KITS_DIR, kitId);
-    if (fs.existsSync(kitPath)) {
-      fs.rmSync(kitPath, { recursive: true });
-      return true;
-    }
+    return false;
+  }
+
+  // Clear all versions
+  if (fs.existsSync(KIT_DIR)) {
+    fs.rmSync(KIT_DIR, { recursive: true });
+    ensureCacheDirs();
+    return true;
   }
   return false;
-}
-
-/** Clear all cached kits. */
-export function clearAllCache(): void {
-  if (fs.existsSync(KITS_DIR)) {
-    fs.rmSync(KITS_DIR, { recursive: true });
-  }
-  ensureCacheDirs();
 }
 
 /** Format bytes to human-readable size. */

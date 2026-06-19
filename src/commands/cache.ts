@@ -1,22 +1,19 @@
 /**
  * ccsk cache — manage downloaded kit cache.
+ * Single kit architecture: no kit selection needed.
  */
 
 import { select, confirm, isCancel } from '@clack/prompts';
-import { KIT_REGISTRY, getKitMeta } from '../core/kit-registry.js';
-import { validateLicenseForKit } from '../core/license.js';
 import { ensureGitHubAuth } from '../core/github-auth.js';
-import { fetchKit } from '../core/kit-fetcher.js';
+import { fetchKit, KIT_LABEL } from '../core/kit-fetcher.js';
 import {
-  listCachedKits,
+  listCachedVersions,
   clearCache,
-  clearAllCache,
   formatSize,
 } from '../core/kit-cache.js';
 import { log } from '../util/log.js';
 
 export interface CacheOptions {
-  kit?: string;
   version?: string;
   list?: boolean;
   clear?: boolean;
@@ -24,23 +21,21 @@ export interface CacheOptions {
 }
 
 export async function runCache(opts: CacheOptions): Promise<void> {
-  // List cached kits
+  // List cached versions
   if (opts.list) {
-    const cached = listCachedKits();
+    const cached = listCachedVersions();
 
     if (cached.length === 0) {
-      log.info('No kits cached.');
-      log.hint('Run: ccsk cache --kit <name> to download a kit for offline use.');
+      log.info('No kit versions cached.');
+      log.hint('Run: ccsk cache to download the kit for offline use.');
       return;
     }
 
-    log.info('Cached kits:');
+    log.info(`Cached ${KIT_LABEL} versions:`);
     log.info('');
 
-    for (const kit of cached) {
-      const meta = getKitMeta(kit.kitId);
-      const label = meta?.label ?? kit.kitId;
-      log.info(`  ${label.padEnd(12)} v${kit.version.padEnd(8)} (${formatSize(kit.sizeBytes)})`);
+    for (const ver of cached) {
+      log.info(`  v${ver.version.padEnd(10)} (${formatSize(ver.sizeBytes)})`);
     }
 
     return;
@@ -49,7 +44,7 @@ export async function runCache(opts: CacheOptions): Promise<void> {
   // Clear all cache
   if (opts.clearAll) {
     const answer = await confirm({
-      message: 'Clear all cached kits?',
+      message: 'Clear all cached kit versions?',
       initialValue: false,
     });
 
@@ -58,91 +53,50 @@ export async function runCache(opts: CacheOptions): Promise<void> {
       return;
     }
 
-    clearAllCache();
-    log.success('All cached kits cleared.');
+    clearCache();
+    log.success('All cached versions cleared.');
     return;
   }
 
-  // Clear specific kit cache
+  // Clear specific version
   if (opts.clear) {
-    if (!opts.kit) {
-      log.error('Specify a kit to clear: ccsk cache --clear --kit <name>');
-      return;
-    }
-
-    const cleared = clearCache(opts.kit, opts.version);
-    if (cleared) {
-      log.success(`Cleared cache for ${opts.kit}${opts.version ? ` v${opts.version}` : ''}`);
+    if (opts.version) {
+      const cleared = clearCache(opts.version);
+      if (cleared) {
+        log.success(`Cleared cache for v${opts.version}`);
+      } else {
+        log.warn(`No cache found for v${opts.version}`);
+      }
     } else {
-      log.warn(`No cache found for ${opts.kit}${opts.version ? ` v${opts.version}` : ''}`);
+      // Clear all if no version specified
+      const answer = await confirm({
+        message: 'Clear all cached kit versions?',
+        initialValue: false,
+      });
+
+      if (isCancel(answer) || !answer) {
+        log.info('Cancelled.');
+        return;
+      }
+
+      clearCache();
+      log.success('All cached versions cleared.');
     }
     return;
   }
 
-  // Download kit to cache
-  if (opts.kit) {
-    const kit = getKitMeta(opts.kit);
-    if (!kit) {
-      log.error(`Unknown kit: ${opts.kit}`);
-      log.hint(`Available: ${KIT_REGISTRY.map((k) => k.id).join(', ')}`);
-      return;
-    }
-
-    // Validate license
-    log.step(`Validating license for ${kit.label} kit...`);
-    const license = await validateLicenseForKit(kit.id);
-    if (!license.valid) {
-      log.error(license.reason);
-      return;
-    }
-
-    // Ensure GitHub auth
-    const auth = await ensureGitHubAuth();
-    if (auth.method === 'none') {
-      return;
-    }
-
-    // fetchKit resolves the latest tag internally when no `--version` is pinned.
-    const result = await fetchKit(kit, { version: opts.version, force: true });
-
-    if (result.success) {
-      log.success(`Cached ${kit.label} kit v${result.version}`);
-      log.hint(`Path: ${result.cachePath}`);
-    } else {
-      log.error(result.error ?? 'Failed to cache kit');
-    }
-
+  // Download kit to cache (default action or explicit)
+  const auth = await ensureGitHubAuth();
+  if (auth.method === 'none') {
     return;
   }
 
-  // Interactive mode
-  const choice = await select({
-    message: 'What would you like to do?',
-    options: [
-      { value: 'list', label: 'List cached kits' },
-      { value: 'download', label: 'Download a kit for offline use' },
-      { value: 'clear', label: 'Clear cached kits' },
-    ],
-  });
+  const result = await fetchKit({ version: opts.version, force: true });
 
-  if (isCancel(choice)) return;
-
-  if (choice === 'list') {
-    await runCache({ list: true });
-  } else if (choice === 'download') {
-    const kitChoice = await select({
-      message: 'Which kit to download?',
-      options: KIT_REGISTRY.map((k) => ({
-        value: k.id,
-        label: k.label,
-        hint: k.description,
-      })),
-    });
-
-    if (!isCancel(kitChoice)) {
-      await runCache({ kit: kitChoice as string });
-    }
-  } else if (choice === 'clear') {
-    await runCache({ clearAll: true });
+  if (result.success) {
+    log.success(`Cached ${KIT_LABEL} v${result.version}`);
+    log.hint(`Path: ${result.cachePath}`);
+  } else {
+    log.error(result.error ?? 'Failed to cache kit');
   }
 }
