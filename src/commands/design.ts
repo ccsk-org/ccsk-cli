@@ -1,8 +1,9 @@
-import { select, confirm, isCancel, cancel } from '@clack/prompts';
+import { confirm, isCancel, cancel } from '@clack/prompts';
 import { execa } from 'execa';
 import { log } from '../util/log.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
-import { DESIGNS, getCategories, getByCategory, CATEGORY_ORDER } from '../core/design-catalog.js';
+import { DESIGNS, getCategoryGroups } from '../core/design-catalog.js';
+import { pickDesignByCategory } from '../util/category-accordion-prompt.js';
 
 export interface DesignOptions {
   targetPath: string;
@@ -10,50 +11,17 @@ export interface DesignOptions {
 }
 
 export async function runDesignSetup(opts: DesignOptions): Promise<void> {
-  if (!opts.yes) {
-    const want = await confirm({
-      message: 'Add a design reference for your UI?',
-      initialValue: false,
-    });
-    if (isCancel(want) || !want) return;
-  }
+  // The category accordion is interactive-only. Under --yes / non-TTY / CI there
+  // is no way to answer it, so skip the optional design step rather than hang.
+  if (opts.yes || !process.stdout.isTTY || process.env.CI) return;
 
-  const categories = getCategories();
-
-  const categoryChoice = await select({
-    message: 'Browse by category:',
-    options: [
-      ...CATEGORY_ORDER.map((name) => {
-        const count = categories.find((c) => c.name === name)?.count ?? 0;
-        return { value: name, label: name, hint: `${count} designs` };
-      }),
-      { value: '__all__', label: 'All designs', hint: `${DESIGNS.length} total` },
-    ],
+  const want = await confirm({
+    message: 'Add a design reference for your UI?',
+    initialValue: false,
   });
+  if (isCancel(want) || !want) return;
 
-  if (isCancel(categoryChoice)) {
-    cancel('Cancelled.');
-    return;
-  }
-
-  const pool =
-    categoryChoice === '__all__'
-      ? DESIGNS
-      : getByCategory(categoryChoice as string);
-
-  if (pool.length === 0) {
-    log.warn('No designs found.');
-    return;
-  }
-
-  const designChoice = await select({
-    message: 'Choose a design:',
-    options: pool.map((d) => ({
-      value: d.slug,
-      label: d.name,
-      hint: d.desc,
-    })),
-  });
+  const designChoice = await pickDesignByCategory(getCategoryGroups());
 
   if (isCancel(designChoice)) {
     cancel('Cancelled.');

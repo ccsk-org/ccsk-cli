@@ -110,13 +110,10 @@ export const CATEGORY_ORDER = [
   'Automotive',
 ];
 
-export function getCategories(): Array<{ name: string; count: number }> {
-  return CATEGORY_ORDER.map((name) => ({
-    name,
-    count: DESIGNS.filter((d) => d.category === name).length,
-  }));
-}
-
 export function getByCategory(category: string): DesignEntry[] {
   return DESIGNS.filter((d) => d.category === category);
+}
+
+export function getCategoryGroups(): Array<{ name: string; designs: DesignEntry[] }> {
+  return CATEGORY_ORDER.map((name) => ({ name, designs: getByCategory(name) }));
 }
