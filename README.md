@@ -27,8 +27,7 @@ Requires Node ≥ 20. Verify with `ccsk --version`.
 ## Quick Start
 
 ```bash
-ccsk auth                  # verify GitHub auth (kits live in private repos)
-ccsk auth                  # verify GitHub auth (kits live in private repos)
+ccsk auth                  # verify GitHub auth (kit repo is private)
 ccsk init                  # scaffold the kit into current directory
 claude                     # open Claude Code
 /ccsk-bootstrap <intent>   # generate tech-stack docs, architecture, and plan
@@ -89,7 +88,17 @@ See [docs/architecture.md](./docs/architecture.md) for module-level details.
 
 ---
 
-## Support
+## Support the Project
+
+If ccsk saves you time, consider supporting development:
+
+```bash
+ccsk donate    # buy the maintainer a coffee via VietQR
+```
+
+---
+
+## Links
 
 - **Issues**: [github.com/ccsk-org/ccsk-cli/issues](https://github.com/ccsk-org/ccsk-cli/issues)
 - **Discussions**: [github.com/ccsk-org/ccsk-cli/discussions](https://github.com/ccsk-org/ccsk-cli/discussions)

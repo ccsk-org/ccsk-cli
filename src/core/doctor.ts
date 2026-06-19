@@ -12,7 +12,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { detectAuthMethod } from './github-auth.js';
-import { hasSavedLicense } from './license.js';
 import { binExists } from '../util/platform.js';
 
 export type DiagnosticStatus = 'pass' | 'warn' | 'fail';
@@ -40,8 +39,6 @@ export interface DoctorProbes {
   readCliVersion: () => string | null;
   /** Best available GitHub auth method. */
   detectAuth: () => Promise<{ method: 'ssh' | 'gh' | 'none' }>;
-  /** Whether a syntactically-valid license key is saved locally (no network). */
-  hasLicense: () => boolean;
   /** Readability of the kit cache dir: present+readable, present+unreadable, or absent. */
   cacheReadable: () => 'ok' | 'unreadable' | 'absent';
 }
@@ -49,8 +46,8 @@ export interface DoctorProbes {
 const MIN_NODE_MAJOR = 20;
 
 /** Kit cache dir — kept in sync with kit-cache.ts (not exported there). */
-function kitsDir(): string {
-  return path.join(os.homedir(), '.ccsk', 'kits');
+function kitDir(): string {
+  return path.join(os.homedir(), '.ccsk', 'kit');
 }
 
 function realReadCliVersion(): string | null {
@@ -64,7 +61,7 @@ function realReadCliVersion(): string | null {
 }
 
 function realCacheReadable(): 'ok' | 'unreadable' | 'absent' {
-  const dir = kitsDir();
+  const dir = kitDir();
   if (!fs.existsSync(dir)) return 'absent';
   try {
     fs.readdirSync(dir);
@@ -81,7 +78,6 @@ export function realProbes(): DoctorProbes {
     gitAvailable: () => binExists('git'),
     readCliVersion: realReadCliVersion,
     detectAuth: async () => detectAuthMethod(),
-    hasLicense: hasSavedLicense,
     cacheReadable: realCacheReadable,
   };
 }
@@ -129,16 +125,6 @@ function checkGithubAuth(method: 'ssh' | 'gh' | 'none'): DiagnosticResult {
   };
 }
 
-function checkLicense(hasLicense: boolean): DiagnosticResult {
-  return {
-    id: 'license',
-    label: 'License',
-    status: hasLicense ? 'pass' : 'warn',
-    detail: hasLicense ? 'saved license present' : 'no saved license',
-    hint: hasLicense ? undefined : 'Normal before first use — a free license auto-registers on first `ccsk init`.',
-  };
-}
-
 function checkKitCache(state: 'ok' | 'unreadable' | 'absent'): DiagnosticResult {
   const ok = state !== 'unreadable';
   return {
@@ -163,7 +149,6 @@ export async function runDiagnostics(probes?: Partial<DoctorProbes>): Promise<Di
     checkGit(await p.gitAvailable()),
     checkCliVersion(p.readCliVersion()),
     checkGithubAuth((await p.detectAuth()).method),
-    checkLicense(p.hasLicense()),
     checkKitCache(p.cacheReadable()),
   ];
 
