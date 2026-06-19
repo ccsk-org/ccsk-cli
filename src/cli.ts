@@ -42,6 +42,7 @@ program
   .option('--version <ver>', 'kit version to install')
   .option('--force', 'force re-download even if cached', false)
   .option('--no-setup', 'skip the tool setup (RTK-AI, context-mode)')
+  .option('--no-add', 'skip ADD (AI-Driven Development) installation')
   .option('-y, --yes', 'accept all prompts', false)
   .action(async (targetPath: string, opts) => {
     await guard(() =>
@@ -50,6 +51,7 @@ program
         version: opts.version,
         force: !!opts.force,
         setup: opts.setup !== false,
+        add: opts.add !== false,
         yes: !!opts.yes,
       }),
     );

@@ -19,6 +19,7 @@ const BLOCK_BODY = [
   '.agents/',
   '.rtk/',
   '.serena/',
+  '.add/',
   '.planning/',
   '',
   'plans/',

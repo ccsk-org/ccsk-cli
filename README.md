@@ -30,7 +30,7 @@ Requires Node ≥ 20. Verify with `ccsk --version`.
 ccsk auth                  # verify GitHub auth (kit repo is private)
 ccsk init                  # scaffold the kit into current directory
 claude                     # open Claude Code
-/ccsk-bootstrap <intent>   # generate tech-stack docs, architecture, and plan
+/scaffold <intent>         # generate tech-stack docs, architecture, and plan
 ```
 
 ---
@@ -45,12 +45,12 @@ your-project/
 ├── .claude/              # agents, rules, slash commands
 │   ├── agents/           # sub-agent definitions (code-reviewer, debugger, etc.)
 │   ├── rules/            # workflow rules (development, documentation)
-│   └── commands/         # slash commands including /ccsk-bootstrap
+│   └── commands/         # slash commands including /scaffold
 ├── .mcp.json             # MCP server configuration
 └── docs/                 # documentation skeleton (architecture, standards, roadmap)
 ```
 
-The `/ccsk-bootstrap` command interviews you about your project, resolves current stack versions, and generates tailored documentation and a phased implementation plan.
+The `/scaffold` command interviews you about your project, resolves current stack versions, and generates tailored documentation and a phased implementation plan.
 
 ---
 

@@ -48,10 +48,10 @@ src/
    - Buy → `vietqr.ts` builds EMVCo payload (`vietnam-qr-pay`) + image URL, prints two QR codes.
 4. **GitHub auth** (`core/github-auth.ts`) — prefers SSH; falls back to `gh` token.
 5. **Fetch kit** (`core/kit-fetcher.ts`) — `git clone --depth 1 --branch v<X>` into `~/.ccsk/kits/<kit>/<version>`. Shallow + `.git` stripped after success. Wrapped in `withShimmer`.
-6. **Copy** (`core/copy-kit.ts`) — confirm overwrite, copy from cache into target. `_dot_X` path segments map to `.X` (e.g. `_dot_claude/commands/ccsk-bootstrap.md` → `.claude/commands/ccsk-bootstrap.md`).
+6. **Copy** (`core/copy-kit.ts`) — confirm overwrite, copy from cache into target. `_dot_X` path segments map to `.X` (e.g. `_dot_claude/commands/scaffold.md` → `.claude/commands/scaffold.md`).
 7. **Sync .gitignore** (`util/gitignore-sync.ts`) — create/merge/replace the ccsk-managed ignore block in the target.
 8. **Optional setup** (`core/setup-runner.ts`) — install Claude/Serena/RTK MCPs.
-9. **Next steps** (`commands/init.ts → printNextSteps`) — prints `cd`, `claude`, and the `/ccsk-bootstrap <intent>` guide shipped inside the kit.
+9. **Next steps** (`commands/init.ts → printNextSteps`) — prints `cd`, `claude`, and the `/scaffold <intent>` guide shipped inside the kit.
 
 ## `ccsk uninstall` data flow
 

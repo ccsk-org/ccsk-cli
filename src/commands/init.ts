@@ -13,15 +13,16 @@ import { copyKit } from '../core/copy-kit.js';
 import { registerInstall } from '../core/install-tracker.js';
 import { promptDonateAfterInit } from '../core/donation.js';
 import { runSetup } from '../core/setup-runner.js';
+import { ensureAdd } from '../core/add.js';
 import { runDesignSetup } from './design.js';
 import { printBanner } from '../util/banner.js';
 import { ensureCcskGitignoreBlock } from '../util/gitignore-sync.js';
-import { log } from '../util/log.js';
+import { log, pc } from '../util/log.js';
 
 const BANNER_META = {
   slogan: 'Claude Code Starter Kit — scaffold Claude-ready projects in one command.',
   author: 'Crystal D.',
-  contributors: 'E.Wallis',
+  contributors: 'E.Wallis, TinDang',
   organization: 'Trustify Technology JSC · US',
 } as const;
 
@@ -38,6 +39,7 @@ function readVersion(): string {
 export interface InitOptions {
   targetPath: string;
   setup: boolean;
+  add: boolean;
   yes: boolean;
   version?: string;
   force?: boolean;
@@ -95,16 +97,26 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const gitignoreAction = ensureCcskGitignoreBlock(targetAbs);
   log.success(`Synced .gitignore (${gitignoreAction} ccsk-managed block)`);
 
-  // 7. Optional tool setup
+  // 7. Optional ADD installation
+  let addInstalled = false;
+  if (opts.add && (opts.yes || await confirmAddInstall())) {
+    const result = await ensureAdd(targetAbs);
+    const icon = result.status === 'ok' ? pc.green('✓') : pc.red('✗');
+    const detail = result.detail ? pc.dim(` (${result.detail})`) : '';
+    console.log(`  ${icon} ${result.name}${detail}`);
+    addInstalled = result.status === 'ok';
+  }
+
+  // 8. Optional tool setup
   if (opts.setup && (opts.yes || await confirmSetup())) {
     await runSetup(targetAbs);
   }
 
-  // 8. Optional design reference
+  // 9. Optional design reference
   await runDesignSetup({ targetPath: targetAbs, yes: opts.yes });
 
   log.success('Done. Open the project in Claude Code to get started.');
-  printNextSteps(targetAbs);
+  printNextSteps(targetAbs, addInstalled);
 
   // 9. Prompt for donation (only in interactive mode)
   if (!opts.yes) {
@@ -113,15 +125,22 @@ export async function runInit(opts: InitOptions): Promise<void> {
   }
 }
 
-function printNextSteps(targetAbs: string): void {
+function printNextSteps(targetAbs: string, addInstalled: boolean): void {
   const rel = path.relative(process.cwd(), targetAbs) || '.';
   log.info('');
   log.info('Next:');
   log.info(`  cd ${rel}`);
   log.info('  claude                       # open Claude Code in this project');
-  log.info('  /ccsk-bootstrap <one-line>   # → tech-stacks, architecture, docs, plan');
+  log.info('  /scaffold <one-line>         # → tech-stacks, architecture, docs, plan');
+
+  if (addInstalled) {
+    log.info('');
+    log.info('ADD Quick Start:');
+    log.info('  /add setup project           # initialize ADD for this project');
+  }
+
   log.info('');
-  log.hint('Examples: `/ccsk-bootstrap B2B HR SaaS for VN SMEs` · `/ccsk-bootstrap` (no args = interview-only)');
+  log.hint('Examples: `/scaffold B2B HR SaaS for VN SMEs` · `/scaffold` (no args = interview-only)');
 }
 
 async function confirmOverwrite(targetAbs: string, yes: boolean): Promise<boolean> {
@@ -141,6 +160,14 @@ async function confirmOverwrite(targetAbs: string, yes: boolean): Promise<boolea
   }
 
   return true;
+}
+
+async function confirmAddInstall(): Promise<boolean> {
+  const answer = await confirm({
+    message: 'Install ADD (AI-Driven Development)?',
+    initialValue: true,
+  });
+  return !isCancel(answer) && answer === true;
 }
 
 async function confirmSetup(): Promise<boolean> {
