@@ -32,3 +32,21 @@ jobs:
 
       - name: Verify CLI
         run: node ./bin/ccsk.js --version
+
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Check docs are in sync with the code
+        run: npm run check:docs

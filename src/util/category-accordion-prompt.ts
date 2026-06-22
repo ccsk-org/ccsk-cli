@@ -28,31 +28,21 @@ import {
   S_STEP_ACTIVE,
   S_STEP_SUBMIT,
   S_STEP_CANCEL,
-  S_RADIO_ACTIVE,
-  S_RADIO_INACTIVE,
 } from '@clack/prompts';
 import pc from 'picocolors';
 import type { DesignEntry } from '../core/design-catalog.js';
+import {
+  HINT,
+  MAX_VIEWPORT,
+  TITLE,
+  renderRow,
+  type Row,
+} from './category-accordion-render.js';
 
 export interface CategoryGroup {
   name: string;
   designs: DesignEntry[];
 }
-
-type Row =
-  | { kind: 'skip' }
-  | { kind: 'sep' }
-  | { kind: 'cat'; name: string; count: number }
-  | { kind: 'design'; entry: DesignEntry; cat: string };
-
-const SKIP_LABEL = "✗ Skip — don't add a design";
-const TITLE = 'Pick a design reference';
-const HINT = '↑↓ navigate · space expand/collapse · ⏎ select · esc cancel';
-const MAX_VIEWPORT = 14;
-
-const cols = (): number => process.stdout.columns ?? 80;
-const fit = (s: string, width: number): string =>
-  s.length <= width ? s : `${s.slice(0, Math.max(0, width - 1))}…`;
 
 class CategoryAccordionPrompt extends Prompt<string | undefined> {
   private readonly groups: CategoryGroup[];
@@ -183,40 +173,12 @@ class CategoryAccordionPrompt extends Prompt<string | undefined> {
 
     if (start > 0) lines.push(`${bar}  ${pc.dim('↑ more')}`);
     for (let i = start; i < start + max; i++) {
-      lines.push(`${bar}  ${this.renderRow(this.rows[i], i === this.cursor)}`);
+      lines.push(`${bar}  ${renderRow(this.rows[i], i === this.cursor, this.expanded)}`);
     }
     if (start + max < total) lines.push(`${bar}  ${pc.dim('↓ more')}`);
 
     lines.push(pc.cyan(S_BAR_END));
     return lines.join('\n');
-  }
-
-  private renderRow(row: Row, active: boolean): string {
-    const width = cols() - 3; // account for "│  " gutter
-
-    if (row.kind === 'skip') {
-      return active ? pc.cyan(SKIP_LABEL) : SKIP_LABEL;
-    }
-
-    if (row.kind === 'sep') {
-      return pc.dim('─'.repeat(Math.min(Math.max(width, 8), 40)));
-    }
-
-    if (row.kind === 'cat') {
-      const caret = this.expanded.has(row.name) ? '▾' : '▸';
-      const label = `${caret} ${row.name}`;
-      const count = String(row.count);
-      const dots = '.'.repeat(Math.max(2, width - label.length - count.length - 2));
-      const head = active ? pc.cyan(label) : label;
-      return `${head} ${pc.dim(dots)} ${pc.dim(count)}`;
-    }
-
-    const marker = active ? pc.green(S_RADIO_ACTIVE) : pc.dim(S_RADIO_INACTIVE);
-    const name = row.entry.name;
-    const descWidth = width - 4 - name.length - 2; // indent + marker + gaps
-    const desc = pc.dim(fit(row.entry.desc, Math.max(8, descWidth)));
-    const shownName = active ? pc.cyan(name) : name;
-    return `  ${marker} ${shownName}  ${desc}`;
   }
 
   private findBySlug(slug: string | undefined): DesignEntry | undefined {

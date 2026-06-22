@@ -51,6 +51,7 @@ async function sendInstallRecord(record: InstallRecord): Promise<boolean> {
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify(record),
+      signal: AbortSignal.timeout(5_000),
     });
 
     return res.ok;

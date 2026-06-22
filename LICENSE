@@ -1,94 +1,21 @@
-CCSK CLI — Proprietary Software License Agreement
+MIT License
 
-Copyright (c) 2026 Crystal D. (Duong Dong) and contributors. All rights reserved.
+Copyright (c) 2026 Crystal D. and contributors
 
-This software and its source code (the "Software") are proprietary. The Software
-is made available in this repository for the sole purposes of evaluation,
-inspection, and security audit. No other rights are granted by publication of
-the source code.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. Grant of limited rights
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-   Subject to the terms below, the rights holder grants any person who lawfully
-   obtains a copy of the Software a non-exclusive, non-transferable, revocable
-   right to:
-
-     (a) view and read the source code of the Software for evaluation and
-         security review;
-     (b) execute the Software on the recipient's own machine(s) for personal,
-         non-commercial evaluation; and
-     (c) install kits and configurations provided by the Software, subject to
-         each kit's own license terms.
-
-2. Restrictions
-
-   Without prior written permission from the rights holder, you may not:
-
-     (a) use the Software, in whole or in part, for any commercial purpose,
-         including providing the Software as a service, integrating it into a
-         commercial product, or using it in the operation of a commercial
-         business;
-     (b) copy, modify, merge, publish, distribute, sublicense, sell, rent,
-         lease, or otherwise transfer copies of the Software or any portion
-         of it;
-     (c) create derivative works based on the Software or any portion of it;
-     (d) remove, alter, or obscure any proprietary notices, license keys, or
-         attribution embedded in the Software; or
-     (e) reverse-engineer, decompile, or disassemble the Software except to the
-         extent that applicable law expressly permits despite this limitation.
-
-3. Kits and license keys
-
-   The Software downloads and installs separately-licensed "kits" hosted by the
-   rights holder or its affiliates. Each kit is governed by its own license
-   terms, which are bundled with the kit and supersede this Agreement for that
-   kit only.
-
-   Paid kits require a license key issued by the rights holder. License keys
-   are personal to the issued account and may not be shared, sublicensed, or
-   transferred.
-
-4. Commercial licenses
-
-   Commercial use, redistribution, OEM bundling, fork-based forks, and bespoke
-   variants are available under a separate written agreement. Contact:
-   duongdong2203@gmail.com.
-
-5. No warranty
-
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING WITHOUT LIMITATION ANY WARRANTY OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. THE RIGHTS HOLDER
-   DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
-
-6. Limitation of liability
-
-   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
-   RIGHTS HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO
-   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, LOSS OF USE, DATA, OR PROFITS,
-   OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-   ARISING IN ANY WAY OUT OF THE USE OF THE SOFTWARE, EVEN IF ADVISED OF THE
-   POSSIBILITY OF SUCH DAMAGE.
-
-7. Termination
-
-   The rights granted in Section 1 terminate automatically and without notice
-   if you breach any term of this Agreement. On termination you must cease all
-   use of the Software and destroy any copies in your possession.
-
-8. Governing law
-
-   This Agreement is governed by the laws of the Socialist Republic of Vietnam,
-   without regard to its conflict-of-law principles. Any dispute arising under
-   or in connection with this Agreement shall be resolved by the competent
-   courts of Hanoi, Vietnam.
-
-9. Entire agreement
-
-   This Agreement constitutes the entire agreement between you and the rights
-   holder regarding the Software and supersedes all prior agreements, written
-   or oral, on the same subject.
-
-To request commercial use, redistribution, or any right not granted above,
-write to: duongdong2203@gmail.com.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

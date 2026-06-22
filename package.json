@@ -1,6 +1,6 @@
 {
   "name": "@ccsk/cli",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Claude Code Starter Kit CLI — scaffold Claude-ready projects in one command",
   "type": "module",
   "bin": {
@@ -18,7 +18,8 @@
     "prepare": "tsc",
     "start": "node ./bin/ccsk.js",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:docs": "node scripts/check-doc-drift.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -45,7 +46,7 @@
     "claude"
   ],
   "author": "Crystal D.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ccsk-org/ccsk-cli.git"

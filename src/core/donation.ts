@@ -4,11 +4,16 @@
  */
 
 import { isCancel, select, text } from '@clack/prompts';
-import { QRPay } from 'vietnam-qr-pay';
 import { log } from '../util/log.js';
-import { renderQrTerminal } from '../util/qr-terminal.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
-import { getPaymentConfig, type Bank } from './payment-config.js';
+import {
+  buildDonationMemo,
+  buildVietQRPayload,
+  buildVietQRUrl,
+  renderQrLines,
+  renderSideBySide,
+} from './donation-qr.js';
+import { getPaymentConfig } from './payment-config.js';
 
 const SUPABASE_URL = 'https://qorrssuqkblahzzlonhz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_iYy5ExmiYqVIwxCD3e5SqQ_E1VNLSKK';
@@ -37,54 +42,6 @@ interface DonationRecord {
   memo: string;
 }
 
-function buildDonationMemo(tier: DonationTier): string {
-  // Format: "CCSK DONATE COFFEE" or "CCSK DONATE BRUNCH"
-  return `CCSK DONATE ${tier.id.toUpperCase().replace('_', ' ')}`;
-}
-
-function buildVietQRPayload(bank: Bank, amount: number, memo: string): string {
-  const qr = QRPay.initVietQR({
-    bankBin: bank.bin,
-    bankNumber: bank.account_number,
-  });
-  qr.amount = amount.toString();
-  qr.additionalData.purpose = memo;
-  return qr.build();
-}
-
-function buildVietQRUrl(bank: Bank, amount: number, memo: string): string {
-  const params = new URLSearchParams({
-    accountName: bank.account_name,
-    amount: amount.toString(),
-    addInfo: memo,
-  });
-  return `https://api.vietqr.io/image/${bank.bin}-${bank.account_number}-i7ISzDh.jpg?${params.toString()}`;
-}
-
-function renderQrLines(content: string): string[] {
-  return renderQrTerminal(content);
-}
-
-function padRight(line: string, width: number): string {
-  if (line.length >= width) return line;
-  return line + ' '.repeat(width - line.length);
-}
-
-function renderSideBySide(blocks: Array<{ label: string; qr: string[] }>): string {
-  const widths = blocks.map((b) => b.qr.reduce((max, l) => Math.max(max, l.length), b.label.length));
-  const rows = blocks.reduce((max, b) => Math.max(max, b.qr.length), 0);
-  const gap = '    ';
-  const lines: string[] = [];
-
-  lines.push(blocks.map((b, i) => padRight(b.label, widths[i])).join(gap));
-
-  for (let i = 0; i < rows; i++) {
-    lines.push(blocks.map((b, idx) => padRight(b.qr[i] ?? '', widths[idx])).join(gap));
-  }
-
-  return lines.join('\n');
-}
-
 async function recordDonation(record: DonationRecord): Promise<boolean> {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/record-donation`, {
@@ -94,6 +51,7 @@ async function recordDonation(record: DonationRecord): Promise<boolean> {
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify(record),
+      signal: AbortSignal.timeout(5_000),
     });
     return res.ok;
   } catch {
@@ -155,7 +113,7 @@ export async function runDonateFlow(): Promise<boolean> {
     return false;
   }
 
-  const memo = buildDonationMemo(tier);
+  const memo = buildDonationMemo(tier.id);
 
   // Record donation attempt (fire and forget)
   recordDonation({

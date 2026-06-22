@@ -1,13 +1,19 @@
 import { execa } from 'execa';
 import { binExists, platform } from '../util/platform.js';
+import { log } from '../util/log.js';
 import type { StepResult } from './step-result.js';
 
 const INSTALL_URL = 'https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh';
 const RELEASES_URL = 'https://github.com/rtk-ai/rtk/releases';
 
-/** Runs the rtk install.sh by fetching it and piping the text into `sh` via stdin. */
+/**
+ * Runs the rtk install.sh by fetching it and piping the text into `sh` via stdin.
+ * The source URL is printed first so the user can see exactly what is executed
+ * (this path pipes a remote script to a shell — see docs/security-audit-report.md).
+ */
 async function installViaCurlScript(): Promise<void> {
-  const res = await fetch(INSTALL_URL);
+  log.step(`Installing rtk from ${INSTALL_URL}`);
+  const res = await fetch(INSTALL_URL, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
   const script = await res.text();
   await execa('sh', { input: script, stdio: ['pipe', 'inherit', 'inherit'] });
