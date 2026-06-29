@@ -2,8 +2,21 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { makeProgress } from '../util/progress.js';
 
-/** Root-level directories in a kit that are never copied into a target. */
-const EXCLUDED_ROOT_DIRS = new Set(['todo']);
+/**
+ * Root-level directories in a kit that are never copied into a target.
+ * `todo/` is maintainer scratch; `.github/` is repo CI + README assets
+ * (workflows, diagram SVGs) that are meaningless inside a user project.
+ */
+const EXCLUDED_ROOT_DIRS = new Set(['todo', '.github']);
+
+/**
+ * Root-level files that document the kit itself rather than configure a
+ * user project. The kit's `README.md` is its showcase landing page (it
+ * would otherwise overwrite the user's own README); `VERSION` tracks the
+ * kit's release, not the user's. `CLAUDE.md` is intentionally NOT here —
+ * it is the harness config and must ship.
+ */
+const EXCLUDED_ROOT_FILES = new Set(['README.md', 'VERSION']);
 
 /**
  * Filenames that must never propagate from a kit into a user project,
@@ -30,6 +43,7 @@ async function collectFiles(srcDir: string, rel = ''): Promise<string[]> {
       files.push(...(await collectFiles(srcDir, childRel)));
     } else if (entry.isFile()) {
       if (EXCLUDED_FILES.has(entry.name)) continue;
+      if (rel === '' && EXCLUDED_ROOT_FILES.has(entry.name)) continue;
       files.push(childRel);
     }
   }

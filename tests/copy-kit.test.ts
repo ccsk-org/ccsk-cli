@@ -65,6 +65,31 @@ describe('copyKit', () => {
     expect(await exists(path.join(targetDir, 'docs/keep.md'))).toBe(true);
   });
 
+  it('skips the root-level .github/ directory', async () => {
+    await write(srcDir, '.github/workflows/publish.yml');
+    await write(srcDir, '.github/assets/build-cadence.svg');
+    await write(srcDir, '_dot_claude/keep.md');
+
+    await copyKit(srcDir, targetDir);
+
+    expect(await exists(path.join(targetDir, '.github'))).toBe(false);
+    expect(await exists(path.join(targetDir, '.claude/keep.md'))).toBe(true);
+  });
+
+  it('skips root README.md and VERSION but still ships CLAUDE.md', async () => {
+    await write(srcDir, 'README.md');
+    await write(srcDir, 'VERSION');
+    await write(srcDir, 'CLAUDE.md');
+    await write(srcDir, '_dot_claude/commands/keep.md', 'doc README.md inside is fine');
+
+    await copyKit(srcDir, targetDir);
+
+    expect(await exists(path.join(targetDir, 'README.md'))).toBe(false);
+    expect(await exists(path.join(targetDir, 'VERSION'))).toBe(false);
+    expect(await exists(path.join(targetDir, 'CLAUDE.md'))).toBe(true);
+    expect(await exists(path.join(targetDir, '.claude/commands/keep.md'))).toBe(true);
+  });
+
   it('overwrites an existing shipped file', async () => {
     await write(srcDir, 'CLAUDE.md', 'new');
     await write(targetDir, 'CLAUDE.md', 'old');
