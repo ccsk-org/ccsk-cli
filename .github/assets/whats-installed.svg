@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" width="860" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <marker id="wiA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#D97757"/>
+    </marker>
+  </defs>
+
+  <rect x="2" y="2" width="896" height="356" rx="14" fill="#FAF9F7" stroke="#E7E2DC"/>
+  <text x="40" y="44" font-size="21" font-weight="700" fill="#1A1A1A">What you get</text>
+
+  <!-- before panel -->
+  <rect x="40" y="74" width="300" height="250" rx="10" fill="#FFFFFF" stroke="#E7E2DC"/>
+  <text x="56" y="100" font-size="12" font-weight="700" fill="#9AA0A6">BEFORE</text>
+  <g font-size="13" fill="#6B7280" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+    <text x="56" y="132">my-app/</text>
+    <text x="74" y="156">src/</text>
+    <text x="74" y="180">package.json</text>
+    <text x="74" y="204">README.md</text>
+  </g>
+
+  <!-- arrow -->
+  <line x1="356" y1="200" x2="404" y2="200" stroke="#D97757" stroke-width="2.5" marker-end="url(#wiA)"/>
+  <text x="380" y="188" text-anchor="middle" font-size="11" font-weight="700" fill="#B4502F" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ccsk init</text>
+
+  <!-- after panel -->
+  <rect x="420" y="74" width="440" height="250" rx="10" fill="#FFFFFF" stroke="#D97757"/>
+  <text x="436" y="100" font-size="12" font-weight="700" fill="#3F9B6B">AFTER</text>
+  <g font-size="13" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+    <text x="436" y="124" fill="#6B7280">my-app/</text>
+    <text x="454" y="146" fill="#1A1A1A" font-weight="700">CLAUDE.md</text>
+    <text x="454" y="168" fill="#1A1A1A" font-weight="700">.claude/</text>
+    <text x="472" y="188" fill="#B4502F">agents · commands · rules · skills</text>
+    <text x="454" y="210" fill="#1A1A1A" font-weight="700">.ccsk/</text>
+    <text x="472" y="230" fill="#B4502F">plans · templates</text>
+    <text x="454" y="252" fill="#1A1A1A" font-weight="700">.mcp.json</text>
+    <text x="454" y="274" fill="#1A1A1A" font-weight="700">docs/</text>
+    <text x="454" y="296" fill="#9AA0A6">src/  ·  package.json  ·  README.md</text>
+  </g>
+
+  <text x="450" y="344" text-anchor="middle" font-size="12" fill="#9AA0A6">A complete Claude Code harness — agents, commands, rules, skills, and docs — dropped into any project.</text>
+</svg>
