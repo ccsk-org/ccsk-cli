@@ -5,14 +5,31 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execa } from 'execa';
 import { log } from '../util/log.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import { detectAuthMethod, getCloneUrl } from './github-auth.js';
-import { getCachePath, ensureCacheDirs, isCached } from './kit-cache.js';
+import { getCachePath, ensureCacheDirs, isCached, writeCacheMarker, removeCacheMarker } from './kit-cache.js';
 
 const KIT_REPO = 'ccsk-org/ccsk-kit';
-const DEFAULT_VERSION = '1.0.0';
+
+/**
+ * Fallback kit version when resolution fails — derived from the CLI's own
+ * package.json so it can never drift behind the published CLI (a stale
+ * hand-maintained constant once stranded users on the oldest kit).
+ */
+function readCliVersion(): string {
+  try {
+    const pkgPath = fileURLToPath(new URL('../../package.json', import.meta.url));
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version?: string };
+    return typeof pkg.version === 'string' ? pkg.version : '1.0.0';
+  } catch {
+    return '1.0.0';
+  }
+}
+
+const DEFAULT_VERSION = readCliVersion();
 
 export interface FetchOptions {
   force?: boolean;
@@ -67,15 +84,19 @@ export async function fetchKit(options: FetchOptions = {}): Promise<FetchResult>
     return { success: true, cachePath, version, fromCache: true };
   }
 
-  // Remove existing cache if force
-  if (options.force && fs.existsSync(cachePath)) {
+  // We've decided to (re)fetch: clear any existing dir + marker. This covers
+  // --force AND a stale/partial dir that failed the marker check above, so a
+  // later `git clone` never lands in a non-empty directory.
+  if (fs.existsSync(cachePath)) {
     fs.rmSync(cachePath, { recursive: true });
   }
+  removeCacheMarker(version);
 
   // Ensure parent directory exists
   fs.mkdirSync(path.dirname(cachePath), { recursive: true });
 
   try {
+    let sha = '';
     await withShimmer(`Downloading kit v${version}…`, async () => {
       await execa('git', [
         'clone',
@@ -85,12 +106,19 @@ export async function fetchKit(options: FetchOptions = {}): Promise<FetchResult>
         cachePath,
       ], { timeout: 120_000 });
 
+      // Capture the resolved commit before stripping .git (provenance).
+      const probe = await execa('git', ['-C', cachePath, 'rev-parse', 'HEAD'], { reject: false });
+      sha = probe.stdout.trim();
+
       // Remove .git directory to save space
       const gitDir = path.join(cachePath, '.git');
       if (fs.existsSync(gitDir)) {
         fs.rmSync(gitDir, { recursive: true });
       }
     });
+
+    // Mark the clone complete so it is trusted on the next run.
+    writeCacheMarker({ version, sha, completedAt: new Date().toISOString() });
 
     return { success: true, cachePath, version, fromCache: false };
   } catch (err) {
