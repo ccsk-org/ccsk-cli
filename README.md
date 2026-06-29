@@ -64,7 +64,7 @@ And here's what lands in your project:
 <img src="https://raw.githubusercontent.com/ccsk-org/ccsk-cli/main/.github/assets/whats-installed.svg" alt="Before and after: a bare project versus a ccsk-equipped one" width="860">
 </div>
 
-The installed kit runs on the **Build Cadence** — `Frame → Forge → Prove → Sign-off` — with the `/ccsk:plan`, `/ccsk:build`, and `/ccsk:loop` commands. See the [**ccsk-kit**](https://github.com/ccsk-org/ccsk-kit) repo for the full method.
+The installed kit runs on the **Build Cadence** — `Frame → Forge → Prove → Sign-off` — with the `/ccsk-plan`, `/ccsk-build`, and `/ccsk-loop` commands. See the [**ccsk-kit**](https://github.com/ccsk-org/ccsk-kit) repo for the full method.
 
 ---
 
