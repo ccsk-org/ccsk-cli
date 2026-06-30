@@ -21,7 +21,7 @@
 ## Highlights
 
 - 🚀 **One command to productive** — `ccsk init` and your repo is Claude-ready.
-- 📦 **Fetches & caches the kit** — shallow-clones the official kit and caches it at `~/.ccsk/kits` for fast re-installs.
+- 📦 **Fetches & caches the kit** — shallow-clones the official kit and caches it at `~/.ccsk/kit/<version>` for fast re-installs.
 - 🧩 **Dotfile-safe mapping** — ships `_dot_claude → .claude`, `_dot_ccsk → .ccsk`, `_dot_mcp → .mcp.json`.
 - 🔐 **Auth-aware** — detects SSH / `gh` CLI and guides you if access is missing.
 - 🩺 **`doctor` & `uninstall`** — diagnose a broken setup or cleanly remove everything.

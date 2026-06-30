@@ -132,7 +132,7 @@ function checkKitCache(state: 'ok' | 'unreadable' | 'absent'): DiagnosticResult 
     label: 'Kit cache',
     status: ok ? 'pass' : 'fail',
     detail: state === 'ok' ? 'cache readable' : state === 'absent' ? 'no cache yet' : 'cache exists but is not readable',
-    hint: ok ? undefined : 'Fix permissions on ~/.ccsk/kits, or run `ccsk cache --clear-all`.',
+    hint: ok ? undefined : 'Fix permissions on ~/.ccsk/kit/<version>, or run `ccsk cache --clear-all`.',
   };
 }
 

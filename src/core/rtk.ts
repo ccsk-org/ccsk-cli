@@ -3,6 +3,15 @@ import { binExists, platform } from '../util/platform.js';
 import { log } from '../util/log.js';
 import type { StepResult } from './step-result.js';
 
+// TODO(pin): ideally pin install.sh to a release tag + verify its checksum
+// instead of tracking `master` HEAD. Not done here because:
+//   1. upstream `install.sh` lives on branch refs (master/develop), not on the
+//      per-release tags, so there is no stable tagged URL for the script;
+//   2. the script ALREADY downloads the latest release binary and verifies its
+//      checksum itself, so the binary is integrity-checked downstream;
+//   3. rtk ships rapid rc tags (e.g. dev-0.43.0-rc.NNN), so a hardcoded
+//      script-checksum here would go stale almost immediately.
+// Revisit if upstream publishes a tagged, checksummed installer.
 const INSTALL_URL = 'https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh';
 const RELEASES_URL = 'https://github.com/rtk-ai/rtk/releases';
 

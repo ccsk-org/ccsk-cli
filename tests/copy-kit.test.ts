@@ -65,6 +65,20 @@ describe('copyKit', () => {
     expect(await exists(path.join(targetDir, 'docs/keep.md'))).toBe(true);
   });
 
+  it('skips the root-level plugins/ and .claude-plugin/ (plugin source)', async () => {
+    await write(srcDir, 'plugins/ccsk/skills/plan/SKILL.md');
+    await write(srcDir, '.claude-plugin/marketplace.json');
+    await write(srcDir, 'CLAUDE.md');
+    await write(srcDir, '_dot_claude/keep.md');
+
+    await copyKit(srcDir, targetDir);
+
+    expect(await exists(path.join(targetDir, 'plugins'))).toBe(false);
+    expect(await exists(path.join(targetDir, '.claude-plugin'))).toBe(false);
+    expect(await exists(path.join(targetDir, 'CLAUDE.md'))).toBe(true);
+    expect(await exists(path.join(targetDir, '.claude/keep.md'))).toBe(true);
+  });
+
   it('skips the root-level .github/ directory', async () => {
     await write(srcDir, '.github/workflows/publish.yml');
     await write(srcDir, '.github/assets/build-cadence.svg');
@@ -97,6 +111,35 @@ describe('copyKit', () => {
     await copyKit(srcDir, targetDir);
 
     expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md'), 'utf8')).toBe('new');
+  });
+
+  it('preserves existing user memory (.ccsk/ outside templates) on re-copy', async () => {
+    // Kit ships fresh seeds; user already has authored memory.
+    await write(srcDir, '_dot_ccsk/MEMORY.md', 'fresh seed');
+    await write(srcDir, '_dot_ccsk/plans/example/01-PLAN.md', 'example plan');
+    await write(srcDir, '_dot_ccsk/journals/seed.md', 'seed journal');
+    await write(targetDir, '.ccsk/MEMORY.md', 'MY MEMORY');
+    await write(targetDir, '.ccsk/plans/example/01-PLAN.md', 'MY PLAN');
+    await write(targetDir, '.ccsk/journals/seed.md', 'MY JOURNAL');
+
+    await copyKit(srcDir, targetDir);
+
+    expect(await fs.readFile(path.join(targetDir, '.ccsk/MEMORY.md'), 'utf8')).toBe('MY MEMORY');
+    expect(await fs.readFile(path.join(targetDir, '.ccsk/plans/example/01-PLAN.md'), 'utf8')).toBe('MY PLAN');
+    expect(await fs.readFile(path.join(targetDir, '.ccsk/journals/seed.md'), 'utf8')).toBe('MY JOURNAL');
+  });
+
+  it('seeds user memory when absent, and always refreshes templates', async () => {
+    await write(srcDir, '_dot_ccsk/MEMORY.md', 'fresh seed');
+    await write(srcDir, '_dot_ccsk/templates/PLAN.template.md', 'new template');
+    await write(targetDir, '.ccsk/templates/PLAN.template.md', 'old template');
+
+    await copyKit(srcDir, targetDir);
+
+    // MEMORY.md was absent → seeded
+    expect(await fs.readFile(path.join(targetDir, '.ccsk/MEMORY.md'), 'utf8')).toBe('fresh seed');
+    // templates are scaffold → always overwritten
+    expect(await fs.readFile(path.join(targetDir, '.ccsk/templates/PLAN.template.md'), 'utf8')).toBe('new template');
   });
 
   it('returns sorted, de-duplicated top-level destination names', async () => {

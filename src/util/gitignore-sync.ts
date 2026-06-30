@@ -11,23 +11,44 @@ import path from 'node:path';
 
 const MARKER = '# ----- ccsk gitignore -----';
 
+/**
+ * Default policy: keep ALL AI-agentic artifacts out of git. These files still
+ * exist in the working tree (gitignore never deletes them) — they are simply
+ * not committed, so nothing AI-generated lands in the repo unless the user
+ * deliberately opts in via the commented `!`-lines below.
+ */
 const BLOCK_BODY = [
+  '# AI-agentic artifacts — ignored by default (kept locally, never committed).',
+  '# Generated/memory state:',
   '.ccsk/',
-  '.claude/',
+  '.serena/',
+  '.rtk/',
+  '.add/',
   '.specify/',
   '.bmad/',
   '.agents/',
-  '.rtk/',
-  '.serena/',
-  '.add/',
   '.planning/',
-  '',
-  'plans/',
-  'docs/',
   '_bmad-output/',
+  'loop-log.tsv',
+  '**/loop-log.tsv',
   '',
-  'AGENTS.md',
+  '# The kit contract, rules, docs & durable memory (ignored by default):',
   'CLAUDE.md',
+  'AGENTS.md',
+  '.claude/',
+  'docs/',
+  '',
+  '# ── To SHARE the kit with your team, un-ignore what you want committed.',
+  '#    Uncomment the lines below (a re-included dir also needs its parent',
+  '#    un-ignored — e.g. keep `!.claude/` before `!.claude/rules/`).',
+  '# !CLAUDE.md',
+  '# !.claude/',
+  '# !.claude/rules/',
+  '# !docs/',
+  '# !.ccsk/',
+  '# !.ccsk/MEMORY.md',
+  '# !.ccsk/adrs/',
+  '# !.ccsk/plans/',
 ].join('\n');
 
 const BLOCK = `${MARKER}\n${BLOCK_BODY}\n${MARKER}`;

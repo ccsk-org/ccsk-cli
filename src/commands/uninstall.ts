@@ -2,10 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { confirm, isCancel, cancel } from '@clack/prompts';
 import { execa } from 'execa';
-import { existingKitPaths, removeKit } from '../core/remove-kit.js';
+import {
+  existingKitPaths,
+  existingUserMemoryPaths,
+  removeKit,
+  SCAFFOLD_PATHS,
+} from '../core/remove-kit.js';
+import { removeCcskPlugin } from '../core/plugin-install.js';
 import { CCSK_PACKAGE_NAME, removeCcskGlobally } from '../core/pkg-manager.js';
 import { binExists, homeDir } from '../util/platform.js';
-import { log } from '../util/log.js';
+import { log, pc } from '../util/log.js';
 
 const CCSK_HOME = path.join(homeDir(), '.ccsk');
 
@@ -13,6 +19,8 @@ export interface UninstallOptions {
   targetPath: string;
   /** Auto-confirm both the file removal and the tool removal. */
   yes: boolean;
+  /** Also remove USER MEMORY (after backing it up to `.ccsk.bak-<ts>/`). */
+  purgeMemory?: boolean;
 }
 
 export async function runUninstall(opts: UninstallOptions): Promise<void> {
@@ -21,13 +29,24 @@ export async function runUninstall(opts: UninstallOptions): Promise<void> {
 
   if (present.length === 0) {
     log.info(`No ccsk kit files found in ${targetAbs}.`);
-  } else if (await confirmRemoveFiles(present, opts.yes)) {
-    const removed = await removeKit(targetAbs);
-    log.success(`Removed: ${removed.join(', ')}`);
+  } else if (await confirmRemoveFiles(targetAbs, opts)) {
+    const result = await removeKit(targetAbs, { purgeMemory: opts.purgeMemory });
+    if (result.removed.length > 0) log.success(`Removed: ${result.removed.join(', ')}`);
+    if (result.backupDir) {
+      log.warn(`User memory moved to ${pc.bold(path.relative(targetAbs, result.backupDir))} (not deleted).`);
+    }
+    if (result.preserved.length > 0) {
+      log.info(`Preserved user memory: ${result.preserved.join(', ')}`);
+      log.dim('    (use --purge-memory to remove it; it will be backed up first)');
+    }
   } else {
     cancel('Cancelled — nothing was removed.');
     return;
   }
+
+  // Remove the Claude Code plugin + marketplace installed by `ccsk init`.
+  const plugin = await removeCcskPlugin();
+  if (plugin.status === 'ok') log.success(`Removed ${plugin.name} (${plugin.detail})`);
 
   if (await confirmRemoveTools(opts.yes)) {
     await removeTools();
@@ -38,10 +57,21 @@ export async function runUninstall(opts: UninstallOptions): Promise<void> {
   }
 }
 
-async function confirmRemoveFiles(present: string[], yes: boolean): Promise<boolean> {
-  log.warn(`This will delete from the project: ${present.join(', ')}`);
-  if (yes) return true;
-  const answer = await confirm({ message: 'Delete these kit files?', initialValue: true });
+async function confirmRemoveFiles(targetAbs: string, opts: UninstallOptions): Promise<boolean> {
+  const scaffold = (await existingKitPaths(targetAbs)).filter((p) =>
+    (SCAFFOLD_PATHS as readonly string[]).includes(p),
+  );
+  const memory = await existingUserMemoryPaths(targetAbs);
+
+  log.warn(`This will delete the kit scaffold: ${scaffold.join(', ') || '(none)'}`);
+  if (opts.purgeMemory && memory.length > 0) {
+    log.warn(`--purge-memory: user memory will be backed up then removed: ${memory.join(', ')}`);
+  } else if (memory.length > 0) {
+    log.info(`User memory is PRESERVED: ${memory.join(', ')}`);
+  }
+
+  if (opts.yes) return true;
+  const answer = await confirm({ message: 'Proceed?', initialValue: true });
   return !isCancel(answer) && answer === true;
 }
 

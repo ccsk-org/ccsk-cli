@@ -13,6 +13,7 @@ import { copyKit } from '../core/copy-kit.js';
 import { registerInstall } from '../core/install-tracker.js';
 import { promptDonateAfterInit } from '../core/donation.js';
 import { runSetup } from '../core/setup-runner.js';
+import { installCcskPlugin, type PluginScope } from '../core/plugin-install.js';
 import { ensureAdd } from '../core/add.js';
 import { runDesignSetup } from './design.js';
 import { printBanner } from '../util/banner.js';
@@ -43,6 +44,10 @@ export interface InitOptions {
   yes: boolean;
   version?: string;
   force?: boolean;
+  /** Install the ccsk Claude Code plugin after materializing templates. */
+  plugin?: boolean;
+  /** Plugin install scope. Defaults to `project` so it travels with the repo. */
+  pluginScope?: PluginScope;
 }
 
 export async function runInit(opts: InitOptions): Promise<void> {
@@ -96,6 +101,25 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 6. Sync the ccsk-managed .gitignore block
   const gitignoreAction = ensureCcskGitignoreBlock(targetAbs);
   log.success(`Synced .gitignore (${gitignoreAction} ccsk-managed block)`);
+
+  // 6b. Install the Claude Code plugin (non-aborting step). Pin the marketplace
+  // to the local cache path we just cloned at this exact version.
+  if (opts.plugin !== false) {
+    log.step('Installing ccsk Claude Code plugin');
+    const scope: PluginScope = opts.pluginScope ?? 'project';
+    const result = await installCcskPlugin({ source: fetchResult.cachePath, scope });
+    const icon =
+      result.status === 'ok'
+        ? pc.green('✓')
+        : result.status === 'skipped'
+          ? pc.yellow('–')
+          : pc.red('✗');
+    const detail = result.detail ? pc.dim(` (${result.detail})`) : '';
+    console.log(`  ${icon} ${result.name}${detail}`);
+    if (result.status === 'skipped' && result.detail?.includes('claude CLI not found')) {
+      log.dim('    Install Claude Code, then re-run `ccsk init` to add the plugin.');
+    }
+  }
 
   // 7. Optional ADD installation
   let addInstalled = false;
