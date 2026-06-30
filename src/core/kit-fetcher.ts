@@ -56,11 +56,15 @@ export async function fetchKit(options: FetchOptions = {}): Promise<FetchResult>
   ensureCacheDirs();
   const auth = await detectAuthMethod();
 
+  // Normalize a user-supplied version: accept both `1.2.0` and `v1.2.0`. We clone
+  // tag `v${version}` below, so an un-stripped `v1.2.0` would become `vv1.2.0`.
+  const requestedVersion = options.version ? stripVPrefix(options.version) : undefined;
+
   if (auth.method === 'none') {
     return {
       success: false,
-      cachePath: options.version ? getCachePath(options.version) : '',
-      version: options.version ?? '',
+      cachePath: requestedVersion ? getCachePath(requestedVersion) : '',
+      version: requestedVersion ?? '',
       fromCache: false,
       error: 'GitHub authentication required. Run ccsk auth for setup instructions.',
     };
@@ -71,8 +75,8 @@ export async function fetchKit(options: FetchOptions = {}): Promise<FetchResult>
   // Resolve version: explicit flag → latest STABLE → newest valid CACHED → fail.
   // We never fabricate a tag — an unresolved version is a hard, explicit error.
   let version: string;
-  if (options.version) {
-    version = options.version;
+  if (requestedVersion) {
+    version = requestedVersion;
   } else {
     const resolved = await resolveLatestVersion(cloneUrl);
     if (resolved) {
