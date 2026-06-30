@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 370" width="780" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" width="780" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
   <!-- window -->
-  <rect x="30" y="18" width="760" height="334" rx="12" fill="#1E1E22" stroke="#333"/>
+  <rect x="30" y="18" width="760" height="384" rx="12" fill="#1E1E22" stroke="#333"/>
   <!-- title bar -->
   <path d="M30 30 a12 12 0 0 1 12 -12 h736 a12 12 0 0 1 12 12 v18 h-760 z" fill="#2A2A30"/>
   <circle cx="52" cy="36" r="6" fill="#FF5F56"/>
@@ -9,16 +9,21 @@
   <text x="410" y="41" text-anchor="middle" font-size="12" fill="#8A8A92" font-family="-apple-system, sans-serif">ccsk — zsh</text>
 
   <!-- body -->
-  <g font-size="14" xml:space="preserve">
-    <text x="52" y="92"><tspan fill="#7CCF8E">$</tspan><tspan fill="#E6E6E6"> npm i -g @ccsk/cli</tspan></text>
-    <text x="52" y="122"><tspan fill="#7CCF8E">$</tspan><tspan fill="#E6E6E6"> ccsk init</tspan></text>
+  <g font-size="13.5" xml:space="preserve">
+    <text x="52" y="88"><tspan fill="#7CCF8E">$</tspan><tspan fill="#E6E6E6"> npm i -g @ccsk/cli</tspan></text>
+    <text x="52" y="114"><tspan fill="#7CCF8E">$</tspan><tspan fill="#E6E6E6"> ccsk init</tspan></text>
 
-    <text x="52" y="156"><tspan fill="#D97757">◇</tspan><tspan fill="#C9C9CF">  Install the ccsk kit into ./my-app?  </tspan><tspan fill="#7CCF8E">› Yes</tspan></text>
-    <text x="52" y="186"><tspan fill="#D97757">◇</tspan><tspan fill="#C9C9CF">  GitHub access … </tspan><tspan fill="#7CCF8E">✓ detected via gh</tspan></text>
-    <text x="52" y="216"><tspan fill="#D97757">◆</tspan><tspan fill="#C9C9CF">  Fetching kit v1.x … </tspan><tspan fill="#9AA0A6">cached (~/.ccsk/kits)</tspan></text>
-    <text x="52" y="246"><tspan fill="#D97757">◆</tspan><tspan fill="#C9C9CF">  Copying kit …  </tspan><tspan fill="#E6E6E6">.claude  .ccsk  .mcp.json  </tspan><tspan fill="#7CCF8E">✓</tspan></text>
-    <text x="52" y="276"><tspan fill="#D97757">◇</tspan><tspan fill="#C9C9CF">  Install ADD methodology?  </tspan><tspan fill="#9AA0A6">› Skip</tspan></text>
-    <text x="60" y="300" fill="#4A4A52">│</text>
-    <text x="52" y="328"><tspan fill="#7CCF8E">└</tspan><tspan fill="#E6E6E6">  Done. Open Claude and run </tspan><tspan fill="#D9A24A">/scaffold</tspan></text>
+    <text x="52" y="146"><tspan fill="#D97757">◇</tspan><tspan fill="#C9C9CF">  GitHub access … </tspan><tspan fill="#7CCF8E">✓ detected via gh</tspan></text>
+
+    <text x="52" y="178"><tspan fill="#D97757">◆</tspan><tspan fill="#C9C9CF">  Which kit version?</tspan></text>
+    <text x="76" y="204"><tspan fill="#7CCF8E">●</tspan><tspan fill="#E6E6E6"> v1.1.0          </tspan><tspan fill="#7CCF8E">latest</tspan><tspan fill="#8A8A92"> · stable</tspan></text>
+    <text x="76" y="228"><tspan fill="#8A8A92">○ v2.0.0-beta-01  </tspan><tspan fill="#D9A24A">beta</tspan><tspan fill="#8A8A92"> · prerelease</tspan></text>
+    <text x="76" y="252"><tspan fill="#8A8A92">○ Show all versions…</tspan></text>
+
+    <text x="52" y="284"><tspan fill="#D97757">◆</tspan><tspan fill="#C9C9CF">  Fetching v1.1.0 … </tspan><tspan fill="#8A8A92">cached (~/.ccsk/kit/1.1.0)</tspan></text>
+    <text x="52" y="310"><tspan fill="#D97757">◆</tspan><tspan fill="#C9C9CF">  Materialize + plugin </tspan><tspan fill="#E6E6E6">ccsk@ccsk-kit</tspan><tspan fill="#C9C9CF"> … </tspan><tspan fill="#7CCF8E">✓</tspan></text>
+    <text x="60" y="334" fill="#4A4A52">│</text>
+    <text x="52" y="362"><tspan fill="#7CCF8E">└</tspan><tspan fill="#E6E6E6">  Done. Open Claude and run </tspan><tspan fill="#D9A24A">/ccsk:plan</tspan></text>
+    <text x="52" y="388"><tspan fill="#4A4A52">   (beta? </tspan><tspan fill="#8A8A92">ccsk init --pre</tspan><tspan fill="#4A4A52">  ·  </tspan><tspan fill="#8A8A92">ccsk versions</tspan><tspan fill="#4A4A52"> to list)</tspan></text>
   </g>
 </svg>

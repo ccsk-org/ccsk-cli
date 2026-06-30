@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <!-- card -->
+  <rect x="2" y="2" width="896" height="296" rx="14" fill="#FAF9F7" stroke="#E7E2DC"/>
+  <text x="40" y="44" font-size="21" font-weight="700" fill="#1A1A1A">Kit versions &amp; channels</text>
+  <text x="40" y="67" font-size="13" fill="#6B7280">Stable by default — prereleases are always opt-in. Discover with <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#B4502F">ccsk versions</tspan>.</text>
+
+  <!-- stable lane -->
+  <rect x="40" y="92" width="820" height="74" rx="10" fill="#EAF5EF" stroke="#3F9B6B"/>
+  <text x="60" y="118" font-size="13" font-weight="700" fill="#3F9B6B">STABLE · default</text>
+  <text x="60" y="138" font-size="11" fill="#6B7280" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ccsk init</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700">
+    <rect x="250" y="112" width="150" height="36" rx="8" fill="#FFFFFF" stroke="#3F9B6B"/>
+    <text x="325" y="135" text-anchor="middle" fill="#1A1A1A">v1.1.0  <tspan fill="#3F9B6B" font-size="11">latest</tspan></text>
+    <rect x="420" y="112" width="120" height="36" rx="8" fill="#FFFFFF" stroke="#E7E2DC"/>
+    <text x="480" y="135" text-anchor="middle" fill="#9AA0A6" font-weight="400">v1.0.x</text>
+  </g>
+  <text x="700" y="134" font-size="12" fill="#6B7280">what a plain install gets you</text>
+
+  <!-- beta lane -->
+  <rect x="40" y="178" width="820" height="74" rx="10" fill="#F6E5DD" stroke="#E7C9BB"/>
+  <text x="60" y="204" font-size="13" font-weight="700" fill="#B4502F">BETA · prerelease · opt-in</text>
+  <text x="60" y="224" font-size="11" fill="#6B7280" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">--pre · --version · pick</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="700">
+    <rect x="250" y="198" width="200" height="36" rx="8" fill="#FFFFFF" stroke="#D97757"/>
+    <text x="350" y="221" text-anchor="middle" fill="#1A1A1A">v2.0.0-beta-01  <tspan fill="#D9A24A" font-size="11">beta</tspan></text>
+  </g>
+  <text x="700" y="220" font-size="12" fill="#6B7280">the v2 kit (/ccsk: colon commands)</text>
+
+  <text x="450" y="282" text-anchor="middle" font-size="11" fill="#9AA0A6">A bare <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ccsk update</tspan> never auto-downgrades — if you're on a newer beta it stays put.</text>
+</svg>
