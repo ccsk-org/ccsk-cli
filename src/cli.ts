@@ -12,6 +12,7 @@ import { runUninstall } from './commands/uninstall.js';
 import { runAuth } from './commands/auth.js';
 import { runCache } from './commands/cache.js';
 import { runUpdate } from './commands/update.js';
+import { runVersions } from './commands/versions.js';
 import { runDesign } from './commands/design.js';
 import { runDoctor } from './commands/doctor.js';
 import { runDonate } from './commands/donate.js';
@@ -40,6 +41,7 @@ program
   .description('Install the Claude Code Starter Kit into a project')
   .argument('[path]', 'target directory (defaults to current)', '.')
   .option('--version <ver>', 'kit version to install')
+  .option('--pre', 'opt into prereleases when resolving the latest version', false)
   .option('--force', 'force re-download even if cached', false)
   .option('--no-setup', 'skip the tool setup (RTK-AI, context-mode)')
   .option('--no-add', 'skip ADD (AI-Driven Development) installation')
@@ -51,6 +53,7 @@ program
       runInit({
         targetPath,
         version: opts.version,
+        pre: !!opts.pre,
         force: !!opts.force,
         setup: opts.setup !== false,
         add: opts.add !== false,
@@ -75,6 +78,7 @@ program
   .option('--path <dir>', 'project directory to re-materialize templates into', '.')
   .option('--kit-version <ver>', 'kit version to materialize (defaults to latest)')
   .option('--plugin-scope <scope>', 'plugin install scope: project | user', 'project')
+  .option('--pre', 'opt into prereleases — move to the newest prerelease', false)
   .option('--no-templates', 'skip re-materializing kit templates')
   .option('--no-plugin', 'skip updating the ccsk Claude Code plugin')
   .action(async (version: string, opts) => {
@@ -83,6 +87,7 @@ program
         version,
         targetPath: opts.path ?? '.',
         kitVersion: opts.kitVersion,
+        pre: !!opts.pre,
         templates: opts.templates !== false,
         plugin: opts.plugin !== false,
         pluginScope: opts.pluginScope === 'user' ? 'user' : 'project',
@@ -104,6 +109,22 @@ program
         list: !!opts.list,
         clear: !!opts.clear,
         clearAll: !!opts.clearAll,
+      }),
+    );
+  });
+
+program
+  .command('versions')
+  .description('List available kit versions (remote + cached + current)')
+  .option('--all', 'show the full, untruncated list (incl. prereleases)', false)
+  .option('--pre', 'include prereleases (beta/rc/alpha)', false)
+  .option('--json', 'print machine-readable JSON', false)
+  .action(async (opts) => {
+    await guard(() =>
+      runVersions({
+        all: !!opts.all,
+        pre: !!opts.pre,
+        json: !!opts.json,
       }),
     );
   });

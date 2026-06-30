@@ -3,7 +3,7 @@
  * Single kit architecture: no kit selection needed.
  */
 
-import { select, confirm, isCancel } from '@clack/prompts';
+import { confirm, isCancel } from '@clack/prompts';
 import { ensureGitHubAuth } from '../core/github-auth.js';
 import { fetchKit, KIT_LABEL } from '../core/kit-fetcher.js';
 import {
@@ -11,7 +11,8 @@ import {
   clearCache,
   formatSize,
 } from '../core/kit-cache.js';
-import { log } from '../util/log.js';
+import { readInstalledVersion } from '../core/install-tracker.js';
+import { log, pc } from '../util/log.js';
 
 export interface CacheOptions {
   version?: string;
@@ -31,11 +32,18 @@ export async function runCache(opts: CacheOptions): Promise<void> {
       return;
     }
 
+    const current = readInstalledVersion();
+
     log.info(`Cached ${KIT_LABEL} versions:`);
     log.info('');
 
     for (const ver of cached) {
-      log.info(`  v${ver.version.padEnd(10)} (${formatSize(ver.sizeBytes)})`);
+      const markers: string[] = [];
+      if (ver.version === current?.version) markers.push(pc.cyan('current'));
+      if (ver.version.includes('-')) markers.push(pc.dim('(beta)'));
+      markers.push(pc.dim('cached'));
+      const suffix = markers.length ? `  ${markers.join(' · ')}` : '';
+      log.info(`  v${ver.version.padEnd(16)} (${formatSize(ver.sizeBytes)})${suffix}`);
     }
 
     return;

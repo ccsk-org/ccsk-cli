@@ -3,8 +3,11 @@
  * No access gating. Always succeeds. Records who installed the kit.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { isCancel, text } from '@clack/prompts';
 import { log } from '../util/log.js';
+import { homeDir } from '../util/platform.js';
 import { withShimmer } from '../util/shimmer-spinner.js';
 import { detectAuthMethod } from './github-auth.js';
 
@@ -15,6 +18,47 @@ export interface InstallRecord {
   github_username: string | null;
   email: string | null;
   kit_version: string;
+}
+
+/** Locally-persisted record of the currently-installed kit version/channel. */
+export interface InstalledVersionRecord {
+  version: string;
+  channel: 'stable' | 'pre';
+  installedAt: string;
+}
+
+/** Local state file: ~/.ccsk/install.json (separate from telemetry POST). */
+function installStatePath(): string {
+  return path.join(homeDir(), '.ccsk', 'install.json');
+}
+
+/**
+ * Persist the installed kit version/channel locally so `update` and `versions`
+ * can report "current". Best-effort — never throws.
+ */
+export function recordInstalledVersion(version: string): void {
+  try {
+    const record: InstalledVersionRecord = {
+      version,
+      channel: version.includes('-') ? 'pre' : 'stable',
+      installedAt: new Date().toISOString(),
+    };
+    fs.mkdirSync(path.dirname(installStatePath()), { recursive: true });
+    fs.writeFileSync(installStatePath(), JSON.stringify(record, null, 2), 'utf8');
+  } catch {
+    // Best-effort — local bookkeeping must never block an install.
+  }
+}
+
+/** Read the locally-persisted installed version, or null if absent/corrupt. */
+export function readInstalledVersion(): InstalledVersionRecord | null {
+  try {
+    const raw = fs.readFileSync(installStatePath(), 'utf8');
+    const parsed = JSON.parse(raw) as InstalledVersionRecord;
+    return parsed && typeof parsed.version === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveGitHubUsername(): Promise<string | null> {
@@ -67,6 +111,10 @@ async function sendInstallRecord(record: InstallRecord): Promise<boolean> {
  * Never blocks installation — tracking is best-effort.
  */
 export async function registerInstall(kitVersion: string): Promise<void> {
+  // Persist locally first so `update`/`versions` can read "current" even if
+  // telemetry is skipped or offline.
+  recordInstalledVersion(kitVersion);
+
   const githubUsername = await withShimmer('Detecting GitHub identity…', resolveGitHubUsername);
 
   if (githubUsername) {

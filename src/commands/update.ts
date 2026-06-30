@@ -11,8 +11,14 @@
 import path from 'node:path';
 import { runSelfUpdate } from '../core/self-update.js';
 import { detectAuthMethod } from '../core/github-auth.js';
-import { fetchKit } from '../core/kit-fetcher.js';
+import {
+  fetchKit,
+  resolveLatestStable,
+  resolveLatestPrerelease,
+  compareKitVersion,
+} from '../core/kit-fetcher.js';
 import { copyKit } from '../core/copy-kit.js';
+import { readInstalledVersion, recordInstalledVersion } from '../core/install-tracker.js';
 import { updateCcskPlugin, type PluginScope } from '../core/plugin-install.js';
 import { log, pc } from '../util/log.js';
 import type { StepResult } from '../core/step-result.js';
@@ -30,6 +36,8 @@ export interface UpdateOptions {
   plugin?: boolean;
   /** Plugin scope. Default `project`. */
   pluginScope?: PluginScope;
+  /** Opt into prereleases — move to the newest prerelease. */
+  pre?: boolean;
 }
 
 export async function runUpdate(opts: UpdateOptions): Promise<void> {
@@ -56,11 +64,13 @@ export async function runUpdate(opts: UpdateOptions): Promise<void> {
         detail: 'GitHub auth required — run `ccsk auth`',
       });
     } else {
-      const fetch = await fetchKit({ version: opts.kitVersion });
+      const kitVersion = await resolveKitTarget(opts);
+      const fetch = await fetchKit({ version: kitVersion });
       if (!fetch.success) {
         results.push({ name: 'kit fetch', status: 'failed', detail: fetch.error });
       } else {
         results.push({ name: 'kit fetch', status: 'ok', detail: `v${fetch.version}` });
+        recordInstalledVersion(fetch.version);
 
         // 2. Re-materialize templates (idempotent — preserves user memory).
         if (wantTemplates) {
@@ -84,6 +94,56 @@ export async function runUpdate(opts: UpdateOptions): Promise<void> {
   }
 
   printSummary(results);
+}
+
+/**
+ * Decide which kit version to materialize.
+ *   - explicit `--kit-version` wins;
+ *   - `--pre` → newest prerelease;
+ *   - default → latest STABLE, but NEVER auto-downgrade: if the currently
+ *     installed version is a prerelease newer than the latest stable, keep it
+ *     and warn (cross-channel notice).
+ * Returns undefined to let fetchKit resolve on its own.
+ */
+async function resolveKitTarget(opts: UpdateOptions): Promise<string | undefined> {
+  if (opts.kitVersion) return opts.kitVersion;
+
+  if (opts.pre) {
+    const pre = await resolveLatestPrerelease();
+    if (pre) {
+      log.info(`Updating to newest prerelease v${pre}`);
+      return pre;
+    }
+    log.warn('No prerelease found — falling back to default resolution.');
+    return undefined;
+  }
+
+  const stable = await resolveLatestStable();
+  const current = readInstalledVersion();
+
+  if (current?.channel === 'pre') {
+    if (stable && compareKitVersion(current.version, stable) > 0) {
+      log.warn(
+        `Keeping prerelease v${current.version} (newer than latest stable v${stable}). ` +
+          'Use --pre for newer betas, or --version <x> to switch channels.',
+      );
+      return current.version;
+    }
+    if (!stable) {
+      log.warn(
+        `No stable release available — keeping v${current.version}. Use --version <x> to switch.`,
+      );
+      return current.version;
+    }
+    log.info(`Moving from prerelease v${current.version} to latest stable v${stable}.`);
+    return stable;
+  }
+
+  if (stable) {
+    log.info(`Updating to latest stable v${stable}`);
+    return stable;
+  }
+  return undefined;
 }
 
 /** Runs a step, converting throws into a `failed` StepResult (never aborts). */
