@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { confirm, isCancel, cancel } from '@clack/prompts';
+import { confirm, select, isCancel, cancel } from '@clack/prompts';
 import { ensureGitHubAuth, type AuthStatus } from '../core/github-auth.js';
 import {
   fetchKit,
@@ -14,7 +14,7 @@ import {
   resolveLatestStable,
   resolveLatestPrerelease,
 } from '../core/kit-fetcher.js';
-import { copyKit } from '../core/copy-kit.js';
+import { copyKit, findConflicts, type ConflictPolicy } from '../core/copy-kit.js';
 import { listCachedVersions } from '../core/kit-cache.js';
 import { pickKitVersion } from '../util/version-picker.js';
 import { registerInstall } from '../core/install-tracker.js';
@@ -114,17 +114,27 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 4. Register install (capture GitHub + optional email for tracking)
   await registerInstall(fetchResult.version);
 
-  // 5. Confirm overwrite and copy
+  // 5. Detect conflicts, pick a non-destructive policy, then copy
   const targetAbs = path.resolve(process.cwd(), opts.targetPath);
 
-  if (!(await confirmOverwrite(targetAbs, opts.yes))) {
+  const conflicts = await findConflicts(fetchResult.cachePath, targetAbs);
+  const policy = await resolveConflictPolicy(conflicts, isInteractive(opts));
+  if (policy === null) {
     cancel('Cancelled — no files were written.');
     return;
   }
 
   log.step(`Installing kit v${fetchResult.version} into ${targetAbs}`);
-  const written = await copyKit(fetchResult.cachePath, targetAbs);
-  log.success(`Copied: ${written.join(', ')}`);
+  const written = await copyKit(fetchResult.cachePath, targetAbs, { onConflict: policy });
+  log.success(`Copied: ${written.topLevel.join(', ')}`);
+  if (written.backedUp.length > 0) {
+    log.info(`Backed up ${written.backedUp.length} existing file(s) to *.bak before overwriting.`);
+  }
+  if (written.kept.length > 0) {
+    log.info(
+      `Kept ${written.kept.length} existing file(s); ccsk versions written alongside as *.ccsk.bak.`,
+    );
+  }
 
   // 6. Sync the ccsk-managed .gitignore block
   const gitignoreAction = ensureCcskGitignoreBlock(targetAbs);
@@ -258,23 +268,38 @@ function printNextSteps(targetAbs: string, addInstalled: boolean, isPrerelease: 
   log.hint('Examples: `/scaffold B2B HR SaaS for VN SMEs` · `/scaffold` (no args = interview-only)');
 }
 
-async function confirmOverwrite(targetAbs: string, yes: boolean): Promise<boolean> {
-  if (yes) return true;
+/**
+ * Decides — non-destructively — how to handle shipped files that already exist
+ * in the target. Returns the chosen {@link ConflictPolicy}, or `null` if the
+ * user cancelled.
+ *
+ * - No conflicts → `'backup'` (a no-op; nothing to back up).
+ * - Non-interactive (`--yes` / non-TTY / CI) → `'backup'` (safe default: never destroys files).
+ * - Interactive → a three-way prompt (Overwrite with backup / Keep mine / Cancel).
+ */
+async function resolveConflictPolicy(
+  conflicts: string[],
+  interactive: boolean,
+): Promise<ConflictPolicy | null> {
+  if (conflicts.length === 0) return 'backup';
+  if (!interactive) return 'backup';
 
-  if (fs.existsSync(targetAbs)) {
-    const entries = fs.readdirSync(targetAbs);
-    const kitFiles = entries.filter((e) =>
-      e === 'CLAUDE.md' || e === '.claude' || e === '.mcp.json' || e === 'docs'
-    );
+  log.warn(`${conflicts.length} existing file(s) would be replaced by the kit:`);
+  for (const c of conflicts.slice(0, 8)) log.dim(`  • ${c}`);
+  if (conflicts.length > 8) log.dim(`  …and ${conflicts.length - 8} more`);
 
-    if (kitFiles.length > 0) {
-      log.warn(`Target already contains kit files: ${kitFiles.join(', ')}`);
-      const answer = await confirm({ message: 'Overwrite them?', initialValue: true });
-      return !isCancel(answer) && answer === true;
-    }
-  }
+  const choice = await select({
+    message: 'How should ccsk handle these?',
+    options: [
+      { value: 'backup', label: 'Overwrite — back up mine to *.bak, then install ccsk' },
+      { value: 'keep', label: 'Keep mine — install ccsk alongside as *.ccsk.bak' },
+      { value: 'cancel', label: 'Cancel — write nothing' },
+    ],
+    initialValue: 'backup',
+  });
 
-  return true;
+  if (isCancel(choice) || choice === 'cancel') return null;
+  return choice as ConflictPolicy;
 }
 
 async function confirmAddInstall(): Promise<boolean> {

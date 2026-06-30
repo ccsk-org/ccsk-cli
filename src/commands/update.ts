@@ -75,8 +75,9 @@ export async function runUpdate(opts: UpdateOptions): Promise<void> {
         // 2. Re-materialize templates (idempotent — preserves user memory).
         if (wantTemplates) {
           results.push(await runStep('templates', async () => {
-            const written = await copyKit(fetch.cachePath, targetAbs);
-            return { detail: written.join(', ') };
+            // Non-destructive: back up any customized shipped files to *.bak.
+            const written = await copyKit(fetch.cachePath, targetAbs, { onConflict: 'backup' });
+            return { detail: written.topLevel.join(', ') };
           }));
         }
 

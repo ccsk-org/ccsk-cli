@@ -25,7 +25,7 @@
 - 🧩 **Plugin + materialized contract** — installs the `ccsk@ccsk-kit` Claude Code plugin (the `/ccsk:` commands, agents, skills) and copies `CLAUDE.md`, `.claude/rules`, `docs/`, and `.ccsk/` into your project.
 - 📦 **Fetches & caches** — shallow-clones the kit and caches it at `~/.ccsk/kit/<version>` for fast re-installs.
 - 🔐 **Auth-aware** — detects SSH / `gh` CLI and guides you if access is missing (the kit repo is private).
-- 🧠 **Memory-safe** — re-install and `update` never clobber your `.ccsk/` memory; `uninstall` preserves it by default (and backs it up before any purge).
+- 🛟 **Non-destructive re-init** — never silently overwrites: an existing file is backed up to `.bak` (or kept, with the ccsk copy written alongside as `.ccsk.bak`). Your `.ccsk/` memory is always preserved; `uninstall` keeps it by default (and backs it up before any purge).
 - 🎨 **Optional extras** — tool setup (gh · RTK · context-mode · Serena MCP), ADD methodology, and design references — all skippable.
 - 💻 **Cross-platform & CI-friendly** — macOS / Linux / Windows; `-y` for non-interactive runs.
 
@@ -54,7 +54,7 @@ claude             # open Claude Code
 
 ## How it works
 
-`ccsk init` is auth-aware, cached, and idempotent — it overwrites only the files it ships, **preserves your `.ccsk/` memory**, and never touches your code. It also writes a fenced block to your `.gitignore` (AI artifacts ignored by default) and installs a Claude Code plugin.
+`ccsk init` is auth-aware, cached, and **non-destructive** — it never silently overwrites a file you've edited (it asks how to handle conflicts and always keeps a copy — see [Safe re-init & backups](#safe-re-init--backups)), **preserves your `.ccsk/` memory**, and never touches your code. It also writes a fenced block to your `.gitignore` (AI artifacts ignored by default) and installs a Claude Code plugin.
 
 <div align="center">
 <img src="https://raw.githubusercontent.com/ccsk-org/ccsk-cli/main/.github/assets/install-flow.png" alt="ccsk init pipeline: confirm, auth, version, fetch, materialize, plugin, ready" width="900">
@@ -67,6 +67,22 @@ Two things land — the **plugin** provides the `/ccsk:` commands, agents, and s
 </div>
 
 See the [**ccsk-kit**](https://github.com/ccsk-org/ccsk-kit) repo for the Build Cadence (`Frame → Forge → Prove → Sign-off`) and the full method.
+
+---
+
+## Safe re-init & backups
+
+Re-running `ccsk init` in an existing project is safe: it **never silently overwrites** a file you've touched. When kit files already exist, you get a **three-way choice** — applied to every conflicting file — and the install always proceeds (it never aborts midway):
+
+<div align="center">
+<img src="https://raw.githubusercontent.com/ccsk-org/ccsk-cli/main/.github/assets/init-safe-backup.png" alt="Safe re-init: Overwrite backs your file up to .bak then writes the ccsk version; Keep mine leaves yours live and writes the ccsk version alongside as .ccsk.bak; Cancel aborts" width="900">
+</div>
+
+- **Overwrite** — your existing file is backed up to `<name>.<ext>.bak`, then the ccsk version is written in its place. Your edits stay recoverable.
+- **Keep mine** — your file is left untouched and the ccsk version is written alongside as `<name>.<ext>.ccsk.bak`, so you can diff or merge on your own terms.
+- **Cancel** — abort the install (the escape hatch); your project is left exactly as-is.
+
+Non-interactive runs (`--yes`, `--force`, or CI) default to the safe **Overwrite-with-backup** behavior — a file is never destroyed without a `.bak` copy first. Your `.ccsk/` memory (plans, journals, ADRs, retros, milestones) is **always preserved** — never overwritten, never backed up away.
 
 ---
 

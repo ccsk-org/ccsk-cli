@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" width="900" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <marker id="sbA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#D97757"/>
+    </marker>
+  </defs>
+
+  <!-- card -->
+  <rect x="2" y="2" width="896" height="466" rx="14" fill="#FAF9F7" stroke="#E7E2DC"/>
+
+  <!-- title -->
+  <text x="40" y="44" font-size="21" font-weight="700" fill="#1A1A1A">Safe re-init &amp; backups</text>
+  <text x="40" y="68" font-size="13.5" fill="#6B7280">When a file already exists, <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#B4502F">ccsk init</tspan> never silently overwrites — you choose once, and it always keeps a copy.</text>
+
+  <!-- decision node -->
+  <rect x="330" y="86" width="240" height="48" rx="10" fill="#1A1A1A"/>
+  <text x="450" y="108" text-anchor="middle" font-size="14" font-weight="700" fill="#FFFFFF">A kit file already exists</text>
+  <text x="450" y="124" text-anchor="middle" font-size="10.5" fill="#E7C9BB">you choose · the install always proceeds</text>
+
+  <!-- branch arrows -->
+  <g stroke="#D97757" stroke-width="2">
+    <path d="M410 134 C300 150 200 150 165 166" fill="none" marker-end="url(#sbA)"/>
+    <line x1="450" y1="134" x2="450" y2="166" marker-end="url(#sbA)"/>
+    <path d="M490 134 C600 150 700 150 735 166" fill="none" marker-end="url(#sbA)"/>
+  </g>
+
+  <!-- ===== Card 1 · Overwrite ===== -->
+  <rect x="40" y="168" width="250" height="168" rx="10" fill="#FFFFFF" stroke="#E7E2DC"/>
+  <text x="165" y="196" text-anchor="middle" font-size="15" font-weight="700" fill="#B4502F">Overwrite</text>
+  <text x="165" y="214" text-anchor="middle" font-size="10.5" fill="#6B7280">back up yours, then replace</text>
+  <line x1="56" y1="224" x2="274" y2="224" stroke="#E7E2DC"/>
+  <text x="60" y="244" font-size="10" font-weight="700" fill="#3F9B6B">LIVE — ccsk version</text>
+  <rect x="60" y="250" width="170" height="26" rx="7" fill="#FAF9F7" stroke="#E7E2DC"/>
+  <text x="145" y="267" text-anchor="middle" font-size="11.5" fill="#1A1A1A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">CLAUDE.md</text>
+  <text x="60" y="300" font-size="10" font-weight="700" fill="#9AA0A6">BACKUP — your old file</text>
+  <rect x="60" y="306" width="170" height="26" rx="7" fill="#FAF9F7" stroke="#E7E2DC"/>
+  <text x="145" y="323" text-anchor="middle" font-size="11.5" fill="#1A1A1A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">CLAUDE.md.bak</text>
+
+  <!-- ===== Card 2 · Keep mine ===== -->
+  <rect x="325" y="168" width="250" height="168" rx="10" fill="#FFFFFF" stroke="#E7E2DC"/>
+  <text x="450" y="196" text-anchor="middle" font-size="15" font-weight="700" fill="#3F9B6B">Keep mine</text>
+  <text x="450" y="214" text-anchor="middle" font-size="10.5" fill="#6B7280">yours stays · ccsk lands beside it</text>
+  <line x1="341" y1="224" x2="559" y2="224" stroke="#E7E2DC"/>
+  <text x="345" y="244" font-size="10" font-weight="700" fill="#3F9B6B">LIVE — your file (untouched)</text>
+  <rect x="345" y="250" width="190" height="26" rx="7" fill="#FAF9F7" stroke="#E7E2DC"/>
+  <text x="440" y="267" text-anchor="middle" font-size="11.5" fill="#1A1A1A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">CLAUDE.md</text>
+  <text x="345" y="300" font-size="10" font-weight="700" fill="#9AA0A6">ALONGSIDE — ccsk version</text>
+  <rect x="345" y="306" width="190" height="26" rx="7" fill="#FAF9F7" stroke="#E7E2DC"/>
+  <text x="440" y="323" text-anchor="middle" font-size="11.5" fill="#1A1A1A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">CLAUDE.md.ccsk.bak</text>
+
+  <!-- ===== Card 3 · Cancel ===== -->
+  <rect x="610" y="168" width="250" height="168" rx="10" fill="#FFFFFF" stroke="#E7E2DC"/>
+  <text x="735" y="196" text-anchor="middle" font-size="15" font-weight="700" fill="#6B7280">Cancel</text>
+  <text x="735" y="214" text-anchor="middle" font-size="10.5" fill="#6B7280">the escape hatch</text>
+  <line x1="626" y1="224" x2="844" y2="224" stroke="#E7E2DC"/>
+  <text x="735" y="268" text-anchor="middle" font-size="13" font-weight="600" fill="#1A1A1A">nothing is written</text>
+  <text x="735" y="290" text-anchor="middle" font-size="11" fill="#9AA0A6">your project is left exactly as-is</text>
+
+  <!-- ===== always-safe band ===== -->
+  <rect x="40" y="352" width="820" height="96" rx="10" fill="#F6E5DD" stroke="#E7C9BB"/>
+  <text x="60" y="380" font-size="12.5" font-weight="700" fill="#B4502F">Always safe — no silent data loss</text>
+  <text x="60" y="404" font-size="11" fill="#1A1A1A">Non-interactive runs (<tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#B4502F">--yes</tspan> · <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#B4502F">--force</tspan> · CI) default to <tspan font-weight="700">Overwrite-with-backup</tspan> — your file is always copied to <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#B4502F">.bak</tspan> first.</text>
+  <text x="60" y="426" font-size="11" fill="#1A1A1A"><tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#B4502F">.ccsk/</tspan> user memory (plans · journals · ADRs · retros · milestones) is always preserved — never overwritten, never backed up away.</text>
+</svg>

@@ -55,7 +55,7 @@ src/
 3. **GitHub auth** (`core/github-auth.ts`) — prefers SSH (`ssh -T git@github.com`); falls back to the `gh` token. Errors out if neither is available (the kit repo is private).
 4. **Fetch kit** (`core/kit-fetcher.ts`) — resolve latest tag, `git clone --depth 1 --branch v<X>` into `~/.ccsk/kit/<version>`. Shallow + `.git` stripped after success.
 5. **Register install** (`core/install-tracker.ts`) — silently detect the GitHub user, optionally prompt for email, fire-and-forget POST to Supabase `register-install`.
-6. **Copy** (`core/copy-kit.ts`) — confirm overwrite, copy from cache into target. `_dot_X` path segments map to `.X` (e.g. `_dot_claude/commands/scaffold.md` → `.claude/commands/scaffold.md`); excludes `settings.local.json`, `.DS_Store`, root `todo/`.
+6. **Copy** (`core/copy-kit.ts`) — copy from cache into target with a **non-destructive, per-file backup** policy: when a target file already exists the user picks Overwrite (back up theirs to `<name>.<ext>.bak`, then write the ccsk version), Keep mine (leave theirs, write the ccsk version alongside as `<name>.<ext>.ccsk.bak`), or Cancel; `--yes`/`--force`/CI default to Overwrite-with-backup. `_dot_X` path segments map to `.X` (e.g. `_dot_claude/commands/scaffold.md` → `.claude/commands/scaffold.md`); excludes `settings.local.json`, `.DS_Store`, root `todo/`; `.ccsk/` memory is always preserved.
 7. **Sync .gitignore** (`util/gitignore-sync.ts`) — create/merge/replace the ccsk-managed ignore block in the target.
 8. **Optional ADD** (`core/add.ts`) — if `--add`, run `npx @pilotspace/add init` in the target.
 9. **Optional setup** (`core/setup-runner.ts`) — if `--setup`, install `gh` CLI, RTK, and the context-mode MCP.

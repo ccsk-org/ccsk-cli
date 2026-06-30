@@ -2,6 +2,19 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { makeProgress } from '../util/progress.js';
 
+/** How {@link copyKit} treats a destination file that already exists (and is not user memory). */
+export type ConflictPolicy = 'backup' | 'keep';
+
+/** Outcome of a {@link copyKit} run. */
+export interface CopyKitResult {
+  /** Top-level destination entry names that were written (sorted). */
+  topLevel: string[];
+  /** Destination-relative paths whose prior contents were moved to a `*.bak` sibling. */
+  backedUp: string[];
+  /** Destination-relative paths left untouched; the kit's version was written as `*.ccsk.bak`. */
+  kept: string[];
+}
+
 /**
  * Root-level directories in a kit that are never copied into a target.
  * `todo/` is maintainer scratch; `.github/` is repo CI + README assets
@@ -78,26 +91,40 @@ function isUserMemoryPath(destRel: string): boolean {
 }
 
 /**
- * Copies a kit's template directory into `targetAbs` verbatim, renaming `_dot_X`
- * segments to `.X` and skipping excluded root dirs (e.g. `todo/`, `plugins/`).
- * Overwrites shipped files; never deletes unrelated user files. Reports
- * percentage progress. Returns the list of top-level destination entry names
- * that were written.
+ * Copies a kit's template directory into `targetAbs`, renaming `_dot_X` segments
+ * to `.X` and skipping excluded root dirs (e.g. `todo/`, `plugins/`). Reports
+ * percentage progress and returns a {@link CopyKitResult}.
+ *
+ * NON-DESTRUCTIVE conflict handling — when a shipped file already exists at the
+ * destination, the user's data is never silently destroyed. The `onConflict`
+ * policy (default `'backup'`) decides:
+ *  - `'backup'`: move the existing file to `<name>.<ext>.bak`, then write ours.
+ *  - `'keep'`:   leave the existing file; write ours alongside as `<name>.<ext>.ccsk.bak`.
+ * On a `.bak`/`.ccsk.bak` name collision (e.g. a prior re-init), a timestamp is
+ * appended so an earlier backup is never clobbered.
  *
  * Idempotent for USER MEMORY: existing `.ccsk/` memory (anything outside
- * `.ccsk/templates/`) is preserved on re-init/update — a present destination
- * file is left untouched rather than clobbered. See {@link isUserMemoryPath}.
+ * `.ccsk/templates/`) is always preserved and never backed up — a present
+ * destination file is left untouched. See {@link isUserMemoryPath}.
  */
-export async function copyKit(srcDir: string, targetAbs: string): Promise<string[]> {
+export async function copyKit(
+  srcDir: string,
+  targetAbs: string,
+  opts: { onConflict?: ConflictPolicy } = {},
+): Promise<CopyKitResult> {
+  const onConflict = opts.onConflict ?? 'backup';
   const files = await collectFiles(srcDir);
   const progress = makeProgress(files.length, 'Copying kit');
   const topLevel = new Set<string>();
+  const backedUp: string[] = [];
+  const kept: string[] = [];
 
   let done = 0;
   progress(done);
   for (const rel of files) {
     const destRel = toDestRel(rel);
     const destPath = path.join(targetAbs, destRel);
+    const srcPath = path.join(srcDir, rel);
 
     // Preserve user memory: never overwrite an existing `.ccsk/` memory file.
     if (isUserMemoryPath(destRel) && (await pathExists(destPath))) {
@@ -108,7 +135,23 @@ export async function copyKit(srcDir: string, targetAbs: string): Promise<string
 
     try {
       await fs.mkdir(path.dirname(destPath), { recursive: true });
-      await fs.copyFile(path.join(srcDir, rel), destPath);
+
+      // Conflict: a non-memory file already exists at the destination.
+      if (await pathExists(destPath)) {
+        if (onConflict === 'keep') {
+          // Keep the user's file; drop ours beside it as `<name>.<ext>.ccsk.bak`.
+          await fs.copyFile(srcPath, await backupPath(destPath, '.ccsk.bak'));
+          kept.push(destRel);
+          topLevel.add(destRel.split(path.sep)[0]);
+          progress(++done);
+          continue;
+        }
+        // 'backup': move the user's file to `<name>.<ext>.bak`, then install ours.
+        await fs.rename(destPath, await backupPath(destPath, '.bak'));
+        backedUp.push(destRel);
+      }
+
+      await fs.copyFile(srcPath, destPath);
     } catch (err) {
       throw new Error(`Failed to copy ${rel}: ${(err as Error).message}`);
     }
@@ -116,7 +159,45 @@ export async function copyKit(srcDir: string, targetAbs: string): Promise<string
     progress(++done);
   }
 
-  return [...topLevel].sort();
+  return { topLevel: [...topLevel].sort(), backedUp, kept };
+}
+
+/**
+ * Returns the destination-relative paths a {@link copyKit} run would write over —
+ * i.e. shipped (non-user-memory) files that already exist in `targetAbs`. Drives
+ * the init conflict prompt. User-memory paths are excluded (always preserved).
+ */
+export async function findConflicts(srcDir: string, targetAbs: string): Promise<string[]> {
+  const files = await collectFiles(srcDir);
+  const conflicts: string[] = [];
+  for (const rel of files) {
+    const destRel = toDestRel(rel);
+    if (isUserMemoryPath(destRel)) continue; // auto-preserved — not a conflict
+    if (await pathExists(path.join(targetAbs, destRel))) conflicts.push(destRel);
+  }
+  return conflicts;
+}
+
+/** Timestamp suffix for backup collisions: `20260630-171530`. */
+function backupStamp(now = new Date()): string {
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return (
+    `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}` +
+    `-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`
+  );
+}
+
+/**
+ * Builds a backup path `<dest><suffix>` (e.g. `CLAUDE.md.bak`). If that already
+ * exists (a prior backup), a timestamp is appended so it is never overwritten.
+ */
+async function backupPath(dest: string, suffix: string): Promise<string> {
+  const base = `${dest}${suffix}`;
+  if (!(await pathExists(base))) return base;
+  let candidate = `${base}.${backupStamp()}`;
+  let n = 2;
+  while (await pathExists(candidate)) candidate = `${base}.${backupStamp()}-${n++}`;
+  return candidate;
 }
 
 /** True if a path exists on disk (file or dir). */

@@ -1,13 +1,14 @@
 /**
  * Unit tests for copy-kit — the cache → target project copy.
- * Covers the `_dot_X → .X` rename, exclusions, overwrite, and the
- * returned top-level entry list. Runs against real temp dirs (no network).
+ * Covers the `_dot_X → .X` rename, exclusions, non-destructive conflict
+ * handling (backup / keep), `findConflicts`, and the returned result.
+ * Runs against real temp dirs (no network).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { copyKit } from '../src/core/copy-kit.js';
+import { copyKit, findConflicts } from '../src/core/copy-kit.js';
 
 let srcDir: string;
 let targetDir: string;
@@ -104,12 +105,54 @@ describe('copyKit', () => {
     expect(await exists(path.join(targetDir, '.claude/commands/keep.md'))).toBe(true);
   });
 
-  it('overwrites an existing shipped file', async () => {
+  it("default 'backup' policy backs up an existing shipped file to *.bak, then installs ours", async () => {
     await write(srcDir, 'CLAUDE.md', 'new');
     await write(targetDir, 'CLAUDE.md', 'old');
 
+    const res = await copyKit(srcDir, targetDir);
+
+    expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md'), 'utf8')).toBe('new');
+    expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md.bak'), 'utf8')).toBe('old');
+    expect(res.backedUp).toEqual(['CLAUDE.md']);
+    expect(res.kept).toEqual([]);
+  });
+
+  it("'keep' policy leaves the user's file and writes ours as *.ccsk.bak", async () => {
+    await write(srcDir, 'CLAUDE.md', 'new');
+    await write(targetDir, 'CLAUDE.md', 'old');
+
+    const res = await copyKit(srcDir, targetDir, { onConflict: 'keep' });
+
+    expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md'), 'utf8')).toBe('old');
+    expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md.ccsk.bak'), 'utf8')).toBe('new');
+    expect(res.kept).toEqual(['CLAUDE.md']);
+    expect(res.backedUp).toEqual([]);
+  });
+
+  it('does not touch files that do not already exist (no spurious backups)', async () => {
+    await write(srcDir, 'CLAUDE.md', 'new');
+
+    const res = await copyKit(srcDir, targetDir);
+
+    expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md'), 'utf8')).toBe('new');
+    expect(await exists(path.join(targetDir, 'CLAUDE.md.bak'))).toBe(false);
+    expect(res.backedUp).toEqual([]);
+  });
+
+  it('disambiguates a *.bak name collision with a timestamp rather than clobbering', async () => {
+    await write(srcDir, 'CLAUDE.md', 'new');
+    await write(targetDir, 'CLAUDE.md', 'old');
+    await write(targetDir, 'CLAUDE.md.bak', 'a prior backup');
+
     await copyKit(srcDir, targetDir);
 
+    // The prior backup is preserved untouched...
+    expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md.bak'), 'utf8')).toBe('a prior backup');
+    // ...and the just-replaced file landed in a timestamped sibling.
+    const stamped = (await fs.readdir(targetDir)).filter((e) => e.startsWith('CLAUDE.md.bak.'));
+    expect(stamped).toHaveLength(1);
+    expect(await fs.readFile(path.join(targetDir, stamped[0]), 'utf8')).toBe('old');
+    // ...and ours is installed.
     expect(await fs.readFile(path.join(targetDir, 'CLAUDE.md'), 'utf8')).toBe('new');
   });
 
@@ -122,11 +165,14 @@ describe('copyKit', () => {
     await write(targetDir, '.ccsk/plans/example/01-PLAN.md', 'MY PLAN');
     await write(targetDir, '.ccsk/journals/seed.md', 'MY JOURNAL');
 
-    await copyKit(srcDir, targetDir);
+    const res = await copyKit(srcDir, targetDir);
 
     expect(await fs.readFile(path.join(targetDir, '.ccsk/MEMORY.md'), 'utf8')).toBe('MY MEMORY');
     expect(await fs.readFile(path.join(targetDir, '.ccsk/plans/example/01-PLAN.md'), 'utf8')).toBe('MY PLAN');
     expect(await fs.readFile(path.join(targetDir, '.ccsk/journals/seed.md'), 'utf8')).toBe('MY JOURNAL');
+    // User memory is preserved outright — never backed up to *.bak.
+    expect(await exists(path.join(targetDir, '.ccsk/MEMORY.md.bak'))).toBe(false);
+    expect(res.backedUp).toEqual([]);
   });
 
   it('seeds user memory when absent, and always refreshes templates', async () => {
@@ -148,8 +194,34 @@ describe('copyKit', () => {
     await write(srcDir, 'CLAUDE.md');
     await write(srcDir, 'docs/x.md');
 
-    const top = await copyKit(srcDir, targetDir);
+    const { topLevel } = await copyKit(srcDir, targetDir);
 
-    expect(top).toEqual(['.claude', 'CLAUDE.md', 'docs']);
+    expect(topLevel).toEqual(['.claude', 'CLAUDE.md', 'docs']);
+  });
+});
+
+describe('findConflicts', () => {
+  it('reports shipped files that already exist, excluding user memory', async () => {
+    await write(srcDir, 'CLAUDE.md');
+    await write(srcDir, '_dot_claude/rules/common.md');
+    await write(srcDir, 'docs/new.md');
+    await write(srcDir, '_dot_ccsk/MEMORY.md'); // user memory — never a conflict
+
+    // Target already has CLAUDE.md, a rule, and authored memory.
+    await write(targetDir, 'CLAUDE.md', 'mine');
+    await write(targetDir, '.claude/rules/common.md', 'mine');
+    await write(targetDir, '.ccsk/MEMORY.md', 'MY MEMORY');
+
+    const conflicts = await findConflicts(srcDir, targetDir);
+
+    expect(conflicts.sort()).toEqual(['CLAUDE.md', path.join('.claude', 'rules', 'common.md')].sort());
+    expect(conflicts).not.toContain(path.join('.ccsk', 'MEMORY.md'));
+  });
+
+  it('returns an empty list for a clean target', async () => {
+    await write(srcDir, 'CLAUDE.md');
+    await write(srcDir, 'docs/x.md');
+
+    expect(await findConflicts(srcDir, targetDir)).toEqual([]);
   });
 });
