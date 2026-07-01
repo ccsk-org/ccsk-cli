@@ -20,6 +20,8 @@ import {
 import { copyKit } from '../core/copy-kit.js';
 import { readInstalledVersion, recordInstalledVersion } from '../core/install-tracker.js';
 import { updateCcskPlugin, type PluginScope } from '../core/plugin-install.js';
+import { materializePlugin, normalizeMaterializedContract } from '../core/materialize-plugin.js';
+import { readDirSafe } from '../core/plugin-roster.js';
 import { log, pc } from '../util/log.js';
 import type { StepResult } from '../core/step-result.js';
 
@@ -81,8 +83,18 @@ export async function runUpdate(opts: UpdateOptions): Promise<void> {
           }));
         }
 
-        // 3. Update the plugin, pinned to the freshly-fetched cache path.
-        if (wantPlugin) {
+        // 3. Refresh agents/skills the same way they were delivered:
+        //    a materialized project gets its .claude/{agents,skills} re-copied +
+        //    re-normalized; a plugin project gets the plugin updated.
+        if (isMaterializedProject(targetAbs)) {
+          results.push(await runStep('agents & skills', async () => {
+            const mat = await materializePlugin(fetch.cachePath, targetAbs);
+            const changed = await normalizeMaterializedContract(targetAbs, fetch.cachePath);
+            return {
+              detail: `${mat.agents} agents + ${mat.skills} skills, ${changed.length} contract`,
+            };
+          }));
+        } else if (wantPlugin) {
           results.push(
             await updateCcskPlugin({
               source: fetch.cachePath,
@@ -145,6 +157,15 @@ async function resolveKitTarget(opts: UpdateOptions): Promise<string | undefined
     return stable;
   }
   return undefined;
+}
+
+/**
+ * True if the project was initialized in materialize mode — detected by any
+ * `ccsk-*` skill dir under `.claude/skills` (the prefix materializePlugin uses).
+ */
+function isMaterializedProject(targetAbs: string): boolean {
+  const skillsDir = path.join(targetAbs, '.claude', 'skills');
+  return readDirSafe(skillsDir).some((e) => e.isDirectory() && e.name.startsWith('ccsk-'));
 }
 
 /** Runs a step, converting throws into a `failed` StepResult (never aborts). */

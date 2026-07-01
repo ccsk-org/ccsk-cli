@@ -2,24 +2,33 @@
  * Post-install "what got installed" summary — a rounded box grouping the kit's
  * agents / skills / commands / rules with counts and a few sample names.
  *
- * Two data sources: the plugin roster (agents + skills) lives in the fetched
- * kit `srcDir` under `plugins/ccsk/` (it ships via the marketplace, NOT copyKit),
- * while rules come from the copyKit file list. Rendering matches the CLI's
+ * Mode-aware so the counts reflect REALITY:
+ *  - `materialize` (default): agents/skills are copied into the project, so we
+ *    count them from `<target>/.claude/{agents,skills}` — what actually landed.
+ *  - `plugin` (legacy `--plugin`): agents/skills live in the installed plugin,
+ *    so we count them from the fetched kit cache (`srcDir/plugins/ccsk`).
+ * Rules always come from the copyKit file list. Rendering matches the CLI's
  * picocolors conventions and the in-session banner family (rounded corners).
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { pc } from './log.js';
+import { listMarkdownNames, listSkills, type SkillEntry } from '../core/plugin-roster.js';
 
 /** Inner width between the vertical borders (visible columns). */
 const WIDTH = 56;
 /** Column budget for the sample-name list on each data row. */
 const SAMPLE_WIDTH = WIDTH - 3 - 9 - 3 - 3; // indent + label + count + gap
 
+export type DeliveryMode = 'materialize' | 'plugin';
+
 export interface InstallSummaryInput {
+  /** How agents/skills were delivered — decides where counts come from. */
+  mode: DeliveryMode;
   /** Fetched kit source dir (cache path) — where `plugins/ccsk/` lives. */
   srcDir: string;
+  /** Target project dir — where materialized `.claude/{agents,skills}` live. */
+  targetAbs: string;
   /** Destination-relative paths written by copyKit (OS-native separators). */
   files: string[];
 }
@@ -32,34 +41,57 @@ interface Group {
   note?: string;
 }
 
-/** Collects the grouped roster from the fetched kit + copy file list. */
+/** The guide command differs by mode (materialized `/ccsk-guide` vs plugin `/ccsk:guide`). */
+function guideCommand(mode: DeliveryMode): string {
+  return mode === 'materialize' ? '/ccsk-guide' : '/ccsk:guide';
+}
+
+/** Collects the grouped roster, reading counts from the mode-appropriate source. */
 export function collectGroups(input: InstallSummaryInput): Group[] {
-  const agents = listMarkdownNames(path.join(input.srcDir, 'plugins', 'ccsk', 'agents'));
-  const skills = listSkills(path.join(input.srcDir, 'plugins', 'ccsk', 'skills'));
-  const commands = skills.filter((s) => s.invocable).map((s) => s.name);
+  const agentDir =
+    input.mode === 'materialize'
+      ? path.join(input.targetAbs, '.claude', 'agents')
+      : path.join(input.srcDir, 'plugins', 'ccsk', 'agents');
+  const skillDir =
+    input.mode === 'materialize'
+      ? path.join(input.targetAbs, '.claude', 'skills')
+      : path.join(input.srcDir, 'plugins', 'ccsk', 'skills');
+
+  const agents = listMarkdownNames(agentDir);
+  const skills = listSkills(skillDir);
+  const commands = skills.filter((s) => s.invocable).map((s) => commandName(s, input.mode));
   const ruleCount = input.files.filter(isRulePath).length;
 
   return [
     { label: 'Agents', count: agents.length, samples: agents.slice(0, 3) },
     { label: 'Skills', count: skills.length, samples: skills.slice(0, 4).map((s) => s.name) },
-    { label: 'Commands', count: commands.length, samples: commands.slice(0, 4).map((c) => `/ccsk:${c}`) },
+    { label: 'Commands', count: commands.length, samples: commands.slice(0, 3) },
     { label: 'Rules', count: ruleCount, samples: [], note: 'always-on contract (auto-loaded)' },
   ];
 }
 
+/**
+ * The slash-command a skill exposes. In materialize mode the skill dir is
+ * already `ccsk-<name>`, so the command is `/<dir>`. In plugin mode the plugin
+ * namespaces it as `/ccsk:<name>`.
+ */
+function commandName(s: SkillEntry, mode: DeliveryMode): string {
+  return mode === 'materialize' ? `/${s.name}` : `/ccsk:${s.name}`;
+}
+
 /** Prints the boxed install summary to stdout. */
 export function printInstallSummary(input: InstallSummaryInput): void {
-  for (const line of renderSummary(collectGroups(input))) console.log(line);
+  for (const line of renderSummary(collectGroups(input), input.mode)) console.log(line);
 }
 
 /** Builds the box as an array of ready-to-print (possibly colored) lines. */
-export function renderSummary(groups: Group[]): string[] {
+export function renderSummary(groups: Group[], mode: DeliveryMode = 'materialize'): string[] {
   const lines: string[] = [];
   lines.push(topBorder('ccsk installed'));
   lines.push(boxed(''.padEnd(WIDTH)));
   for (const g of groups) lines.push(boxed(dataRow(g)));
   lines.push(boxed(''.padEnd(WIDTH)));
-  lines.push(boxed(footerRow()));
+  lines.push(boxed(footerRow(mode)));
   lines.push('  ' + pc.dim('╰' + '─'.repeat(WIDTH) + '╯'));
   return lines;
 }
@@ -92,58 +124,17 @@ function dataRow(g: Group): string {
   return '   ' + pc.bold(pc.cyan(label)) + pc.bold(pc.white(count)) + '   ' + pc.dim(samples);
 }
 
-/** The single call-to-action row: `→  /ccsk:guide   to see the cadence`. */
-function footerRow(): string {
-  const tail = '   to see the cadence'.padEnd(WIDTH - 3 - 1 - 2 - 11);
-  return '   ' + pc.green('→') + '  ' + pc.bold(pc.cyan('/ccsk:guide')) + pc.dim(tail);
+/** The single call-to-action row: `→  <guide>   to see the cadence`. */
+function footerRow(mode: DeliveryMode): string {
+  const guide = guideCommand(mode);
+  const tail = '   to see the cadence'.padEnd(WIDTH - 3 - 1 - 2 - guide.length);
+  return '   ' + pc.green('→') + '  ' + pc.bold(pc.cyan(guide)) + pc.dim(tail);
 }
 
 /** True for a materialized `.claude/rules/*.md` path (any OS separator). */
 function isRulePath(rel: string): boolean {
   const parts = rel.split(path.sep);
   return parts[0] === '.claude' && parts[1] === 'rules' && rel.endsWith('.md');
-}
-
-/** Lists `*.md` basenames (without extension) in a dir, sorted; [] if absent. */
-function listMarkdownNames(dir: string): string[] {
-  return readDirSafe(dir)
-    .filter((e) => e.isFile() && e.name.endsWith('.md'))
-    .map((e) => e.name.replace(/\.md$/, ''))
-    .sort();
-}
-
-interface SkillEntry {
-  name: string;
-  invocable: boolean;
-}
-
-/** Lists skill dirs (each holding a SKILL.md), flagging user-invocable ones. */
-function listSkills(dir: string): SkillEntry[] {
-  return readDirSafe(dir)
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
-    .filter((name) => fs.existsSync(path.join(dir, name, 'SKILL.md')))
-    .sort()
-    .map((name) => ({ name, invocable: isInvocable(path.join(dir, name, 'SKILL.md')) }));
-}
-
-/** A skill is invocable unless its frontmatter sets `user-invocable: false`. */
-function isInvocable(skillMd: string): boolean {
-  try {
-    const head = fs.readFileSync(skillMd, 'utf8').slice(0, 2000);
-    return !/^user-invocable:\s*false\b/m.test(head);
-  } catch {
-    return true;
-  }
-}
-
-/** `readdirSync` with dirents, returning [] instead of throwing on a missing dir. */
-function readDirSafe(dir: string): fs.Dirent[] {
-  try {
-    return fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
 }
 
 /** Truncates to `w` display columns, using `…` (1 col) as the ellipsis. */

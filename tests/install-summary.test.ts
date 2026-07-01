@@ -1,16 +1,21 @@
 /**
- * Unit tests for the post-install summary: correct grouped counts from a
- * fixture kit srcDir + copy file list, and a box whose every line is the same
- * display width (emoji budgeted as 2 columns — the alignment invariant).
+ * Unit tests for the post-install summary: mode-accurate counts (plugin mode
+ * reads the kit cache; materialize mode reads the project's `.claude/`), and a
+ * box whose every line is the same display width (emoji budgeted as 2 columns).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { collectGroups, renderSummary } from '../src/util/install-summary.js';
+import {
+  collectGroups,
+  renderSummary,
+  type InstallSummaryInput,
+} from '../src/util/install-summary.js';
 
 let srcDir: string;
+let targetDir: string;
 
 function write(root: string, rel: string, body = 'x'): void {
   const p = path.join(root, rel);
@@ -19,11 +24,11 @@ function write(root: string, rel: string, body = 'x'): void {
 }
 
 beforeEach(async () => {
-  srcDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'ccsk-sum-'));
-  // 2 agents
+  srcDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'ccsk-sum-src-'));
+  targetDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'ccsk-sum-dst-'));
+  // Kit cache layout (plugin source): 2 agents, 3 skills (one glue).
   write(srcDir, 'plugins/ccsk/agents/planner.md');
   write(srcDir, 'plugins/ccsk/agents/executor.md');
-  // 3 skills — one glue (not user-invocable)
   write(srcDir, 'plugins/ccsk/skills/plan/SKILL.md', '---\nname: plan\n---\n');
   write(srcDir, 'plugins/ccsk/skills/build/SKILL.md', '---\nname: build\n---\n');
   write(
@@ -31,9 +36,20 @@ beforeEach(async () => {
     'plugins/ccsk/skills/project-organization/SKILL.md',
     '---\nname: project-organization\nuser-invocable: false\n---\n',
   );
+  // Materialized project layout: bare agents, ccsk-prefixed skill dirs.
+  write(targetDir, '.claude/agents/planner.md');
+  write(targetDir, '.claude/agents/executor.md');
+  write(targetDir, '.claude/skills/ccsk-plan/SKILL.md', '---\nname: plan\n---\n');
+  write(targetDir, '.claude/skills/ccsk-build/SKILL.md', '---\nname: build\n---\n');
+  write(
+    targetDir,
+    '.claude/skills/ccsk-project-organization/SKILL.md',
+    '---\nname: project-organization\nuser-invocable: false\n---\n',
+  );
 });
 afterEach(async () => {
   await fsp.rm(srcDir, { recursive: true, force: true });
+  await fsp.rm(targetDir, { recursive: true, force: true });
 });
 
 const files = [
@@ -43,6 +59,9 @@ const files = [
   path.join('docs', 'x.md'),
 ];
 
+const pluginInput = (): InstallSummaryInput => ({ mode: 'plugin', srcDir, targetAbs: targetDir, files });
+const matInput = (): InstallSummaryInput => ({ mode: 'materialize', srcDir, targetAbs: targetDir, files });
+
 /** Display width: strip ANSI, then count `✅` (1 JS char) as 2 columns. */
 function displayWidth(s: string): number {
   const plain = s.replace(/\x1b\[[0-9;]*m/g, '');
@@ -50,11 +69,9 @@ function displayWidth(s: string): number {
   return [...plain].length + wideEmoji;
 }
 
-describe('collectGroups', () => {
+describe('collectGroups — plugin mode (reads kit cache)', () => {
   it('counts agents, skills, invocable commands, and rules', () => {
-    const groups = collectGroups({ srcDir, files });
-    const by = Object.fromEntries(groups.map((g) => [g.label, g]));
-
+    const by = Object.fromEntries(collectGroups(pluginInput()).map((g) => [g.label, g]));
     expect(by.Agents.count).toBe(2);
     expect(by.Skills.count).toBe(3);
     expect(by.Commands.count).toBe(2); // glue skill excluded
@@ -62,25 +79,37 @@ describe('collectGroups', () => {
     expect(by.Commands.samples).toEqual(['/ccsk:build', '/ccsk:plan']);
     expect(by.Agents.samples).toEqual(['executor', 'planner']);
   });
+});
 
-  it('yields zero counts for a srcDir with no plugin dir', () => {
-    const groups = collectGroups({ srcDir: os.tmpdir() + '/does-not-exist', files: [] });
-    expect(groups.every((g) => g.count === 0)).toBe(true);
+describe('collectGroups — materialize mode (reads project .claude/)', () => {
+  it('counts from the project and uses /ccsk-<name> commands', () => {
+    const by = Object.fromEntries(collectGroups(matInput()).map((g) => [g.label, g]));
+    expect(by.Agents.count).toBe(2);
+    expect(by.Skills.count).toBe(3);
+    expect(by.Commands.count).toBe(2);
+    expect(by.Rules.count).toBe(2);
+    expect(by.Commands.samples).toEqual(['/ccsk-build', '/ccsk-plan']);
+    expect(by.Agents.samples).toEqual(['executor', 'planner']);
+  });
+
+  it('yields zero counts when the project has no materialized agents/skills', () => {
+    const empty = collectGroups({ mode: 'materialize', srcDir, targetAbs: os.tmpdir() + '/nope', files: [] });
+    expect(empty.filter((g) => g.label !== 'Rules').every((g) => g.count === 0)).toBe(true);
   });
 });
 
 describe('renderSummary', () => {
-  it('emits lines of identical display width (emoji = 2 cols)', () => {
-    const lines = renderSummary(collectGroups({ srcDir, files }));
-    const widths = lines.map((l) => displayWidth(l.replace(/^ {2}/, ''))); // drop the 2-space indent
-    expect(new Set(widths).size).toBe(1); // all equal
-    expect(widths[0]).toBe(58); // WIDTH(56) + 2 border columns
+  it('emits lines of identical display width in both modes (emoji = 2 cols)', () => {
+    for (const input of [pluginInput(), matInput()]) {
+      const lines = renderSummary(collectGroups(input), input.mode);
+      const widths = lines.map((l) => displayWidth(l.replace(/^ {2}/, '')));
+      expect(new Set(widths).size).toBe(1);
+      expect(widths[0]).toBe(58); // WIDTH(56) + 2 border columns
+    }
   });
 
-  it('renders the title, all group labels, and the guide CTA', () => {
-    const text = renderSummary(collectGroups({ srcDir, files })).join('\n');
-    expect(text).toContain('ccsk installed');
-    for (const label of ['Agents', 'Skills', 'Commands', 'Rules']) expect(text).toContain(label);
-    expect(text).toContain('/ccsk:guide');
+  it('renders the mode-appropriate guide CTA', () => {
+    expect(renderSummary(collectGroups(matInput()), 'materialize').join('\n')).toContain('/ccsk-guide');
+    expect(renderSummary(collectGroups(pluginInput()), 'plugin').join('\n')).toContain('/ccsk:guide');
   });
 });

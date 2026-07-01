@@ -21,6 +21,8 @@ import { registerInstall } from '../core/install-tracker.js';
 import { promptDonateAfterInit } from '../core/donation.js';
 import { runSetup } from '../core/setup-runner.js';
 import { installCcskPlugin, type PluginScope } from '../core/plugin-install.js';
+import { materializePlugin, normalizeMaterializedContract } from '../core/materialize-plugin.js';
+import type { DeliveryMode } from '../util/install-summary.js';
 import { ensureAdd } from '../core/add.js';
 import { runDesignSetup } from './design.js';
 import { printBanner } from '../util/banner.js';
@@ -54,9 +56,13 @@ export interface InitOptions {
   /** Opt into prereleases when resolving "latest". */
   pre?: boolean;
   force?: boolean;
-  /** Install the ccsk Claude Code plugin after materializing templates. */
-  plugin?: boolean;
-  /** Plugin install scope. Defaults to `project` so it travels with the repo. */
+  /**
+   * Legacy delivery: install the ccsk Claude Code plugin INSTEAD of materializing
+   * agents/skills into the project. Default (false) materializes them so the kit
+   * is self-contained and visible per-project.
+   */
+  usePlugin?: boolean;
+  /** Plugin install scope (only used with `usePlugin`). Defaults to `project`. */
   pluginScope?: PluginScope;
 }
 
@@ -141,9 +147,14 @@ export async function runInit(opts: InitOptions): Promise<void> {
   const gitignoreAction = ensureCcskGitignoreBlock(targetAbs);
   log.success(`Synced .gitignore (${gitignoreAction} ccsk-managed block)`);
 
-  // 6b. Install the Claude Code plugin (non-aborting step). Pin the marketplace
-  // to the local cache path we just cloned at this exact version.
-  if (opts.plugin !== false) {
+  // 6b. Deliver agents & skills. DEFAULT: materialize them into the project so
+  // the kit is self-contained and visible. LEGACY (`--plugin`): install the
+  // Claude Code plugin instead. The two are mutually exclusive to avoid
+  // duplicate commands (`/ccsk-plan` vs `/ccsk:plan`).
+  const usePlugin = opts.usePlugin === true;
+  const mode: DeliveryMode = usePlugin ? 'plugin' : 'materialize';
+
+  if (usePlugin) {
     log.step('Installing ccsk Claude Code plugin');
     const scope: PluginScope = opts.pluginScope ?? 'project';
     const result = await installCcskPlugin({ source: fetchResult.cachePath, scope });
@@ -156,13 +167,21 @@ export async function runInit(opts: InitOptions): Promise<void> {
     const detail = result.detail ? pc.dim(` (${result.detail})`) : '';
     console.log(`  ${icon} ${result.name}${detail}`);
     if (result.status === 'skipped' && result.detail?.includes('claude CLI not found')) {
-      log.dim('    Install Claude Code, then re-run `ccsk init` to add the plugin.');
+      log.dim('    Install Claude Code, then re-run `ccsk init --plugin` to add the plugin.');
     }
+  } else {
+    log.step('Materializing agents & skills into .claude/');
+    const mat = await materializePlugin(fetchResult.cachePath, targetAbs);
+    const changed = await normalizeMaterializedContract(targetAbs, fetchResult.cachePath);
+    log.success(
+      `${mat.agents} agents + ${mat.skills} skills → .claude/ ` +
+        `(normalized ${changed.length} contract file${changed.length === 1 ? '' : 's'})`,
+    );
   }
 
-  // 6c. Show the installed roster (agents/skills/commands/rules).
+  // 6c. Show the installed roster (agents/skills/commands/rules) — mode-accurate.
   log.info('');
-  printInstallSummary({ srcDir: fetchResult.cachePath, files: written.files });
+  printInstallSummary({ mode, srcDir: fetchResult.cachePath, targetAbs, files: written.files });
 
   // 7. Optional ADD installation
   let addInstalled = false;
@@ -183,7 +202,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   await runDesignSetup({ targetPath: targetAbs, yes: opts.yes });
 
   log.success('Done. Open the project in Claude Code to get started.');
-  printNextSteps(targetAbs, addInstalled, isPrerelease);
+  printNextSteps(targetAbs, addInstalled, isPrerelease, mode);
 
   // 9. Prompt for donation (only in interactive mode)
   if (!opts.yes) {
@@ -251,8 +270,15 @@ export async function resolveVersion(
   return { kind: 'use', version: chosen };
 }
 
-function printNextSteps(targetAbs: string, addInstalled: boolean, isPrerelease: boolean): void {
+function printNextSteps(
+  targetAbs: string,
+  addInstalled: boolean,
+  isPrerelease: boolean,
+  mode: DeliveryMode,
+): void {
   const rel = path.relative(process.cwd(), targetAbs) || '.';
+  const plan = mode === 'materialize' ? '/ccsk-plan' : '/ccsk:plan';
+  const build = mode === 'materialize' ? '/ccsk-build' : '/ccsk:build';
   log.info('');
   if (isPrerelease) {
     log.warn('You are on a prerelease channel. Run `ccsk update` to move to the latest stable.');
@@ -261,7 +287,13 @@ function printNextSteps(targetAbs: string, addInstalled: boolean, isPrerelease: 
   log.info('Next:');
   log.info(`  cd ${rel}`);
   log.info('  claude                       # open Claude Code in this project');
-  log.info('  /scaffold <one-line>         # → tech-stacks, architecture, docs, plan');
+  if (mode === 'materialize') {
+    log.info(`  ${plan} <one-line>          # Frame a plan (agents/skills are in .claude/)`);
+    log.info(`  ${build}                    # Forge → Prove → Sign-off`);
+  } else {
+    log.info(`  ${plan} <one-line>          # via the ccsk plugin (accept the trust dialog first)`);
+    log.info(`  ${build}                    # Forge → Prove → Sign-off`);
+  }
 
   if (addInstalled) {
     log.info('');
@@ -270,7 +302,11 @@ function printNextSteps(targetAbs: string, addInstalled: boolean, isPrerelease: 
   }
 
   log.info('');
-  log.hint('Examples: `/scaffold B2B HR SaaS for VN SMEs` · `/scaffold` (no args = interview-only)');
+  if (mode === 'materialize') {
+    log.hint('Agents & skills are materialized under .claude/ and travel with the repo (note: `ccsk update` refreshes ccsk-owned files from upstream).');
+  } else {
+    log.hint('Agents & skills come from the ccsk plugin — run `/plugin` in Claude Code if commands are missing.');
+  }
 }
 
 /**

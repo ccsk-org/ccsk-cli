@@ -45,8 +45,8 @@ program
   .option('--force', 'force re-download even if cached', false)
   .option('--no-setup', 'skip the tool setup (RTK-AI, context-mode)')
   .option('--no-add', 'skip ADD (AI-Driven Development) installation')
-  .option('--no-plugin', 'skip installing the ccsk Claude Code plugin')
-  .option('--plugin-scope <scope>', 'plugin install scope: project | user', 'project')
+  .option('--plugin', 'legacy: install the ccsk plugin instead of materializing agents/skills into the project', false)
+  .option('--plugin-scope <scope>', 'plugin install scope with --plugin: project | user', 'project')
   .option('-y, --yes', 'accept all prompts', false)
   .action(async (targetPath: string, opts) => {
     await guard(() =>
@@ -57,7 +57,7 @@ program
         force: !!opts.force,
         setup: opts.setup !== false,
         add: opts.add !== false,
-        plugin: opts.plugin !== false,
+        usePlugin: !!opts.plugin,
         pluginScope: opts.pluginScope === 'user' ? 'user' : 'project',
         yes: !!opts.yes,
       }),
