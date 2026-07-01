@@ -9,6 +9,8 @@ export type ConflictPolicy = 'backup' | 'keep';
 export interface CopyKitResult {
   /** Top-level destination entry names that were written (sorted). */
   topLevel: string[];
+  /** Every destination-relative path the kit ships (sorted); drives the install summary. */
+  files: string[];
   /** Destination-relative paths whose prior contents were moved to a `*.bak` sibling. */
   backedUp: string[];
   /** Destination-relative paths left untouched; the kit's version was written as `*.ccsk.bak`. */
@@ -159,7 +161,12 @@ export async function copyKit(
     progress(++done);
   }
 
-  return { topLevel: [...topLevel].sort(), backedUp, kept };
+  return {
+    topLevel: [...topLevel].sort(),
+    files: files.map(toDestRel).sort(),
+    backedUp,
+    kept,
+  };
 }
 
 /**

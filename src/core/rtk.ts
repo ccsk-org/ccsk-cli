@@ -1,6 +1,9 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { execa } from 'execa';
 import { binExists, platform } from '../util/platform.js';
 import { log } from '../util/log.js';
+import { RTK_INSTRUCTIONS_MARKDOWN } from '../templates/rtk-instructions.js';
 import type { StepResult } from './step-result.js';
 
 // TODO(pin): ideally pin install.sh to a release tag + verify its checksum
@@ -61,16 +64,104 @@ export async function ensureRtk(): Promise<StepResult> {
   return { name, status: 'failed', detail: hint };
 }
 
-/** Runs `rtk init` in the target project (enables the Claude Code hook). */
+/**
+ * Runs `rtk init` in the target project (enables the Claude Code hook).
+ *
+ * CLAUDE.md is the project contract and must stay clean, so we snapshot it
+ * before `rtk init` and restore it afterward: `rtk init` mutates CLAUDE.md to
+ * add its own usage block, but we re-introduce that guidance as a dedicated
+ * rule file instead (see {@link wireRtkInstructions}). Everything else `rtk init`
+ * writes — notably the `.claude/settings.json` hook that makes RTK work — is
+ * left untouched.
+ */
 export async function rtkInit(targetAbs: string): Promise<StepResult> {
   const name = 'rtk init';
   if (!(await binExists('rtk'))) return { name, status: 'skipped', detail: 'rtk not on PATH' };
+
+  const claudeMd = path.join(targetAbs, 'CLAUDE.md');
+  const before = await readIfExists(claudeMd);
 
   const { exitCode, stderr } = await execa('rtk', ['init'], {
     cwd: targetAbs,
     reject: false,
     stdio: ['inherit', 'inherit', 'pipe'],
   });
-  if (exitCode === 0) return { name, status: 'ok' };
+
+  // Restore CLAUDE.md if `rtk init` changed it (it only existed before if the
+  // kit shipped it, which it always does — so we never resurrect a deleted file).
+  let preserved = false;
+  if (before !== null) {
+    const after = await readIfExists(claudeMd);
+    if (after !== before) {
+      await fs.writeFile(claudeMd, before, 'utf8');
+      preserved = true;
+    }
+  }
+
+  if (exitCode === 0) {
+    return { name, status: 'ok', detail: preserved ? 'CLAUDE.md preserved' : undefined };
+  }
   return { name, status: 'failed', detail: stderr?.trim() || `exit ${exitCode}` };
+}
+
+/**
+ * Materializes RTK guidance as a dedicated rule file and references it from
+ * CLAUDE.md with a single contract-style `@`-import — the ONE controlled write
+ * to CLAUDE.md (matching how the always-on rules are imported). Runs only when
+ * RTK is actually present, so non-RTK projects keep a clean CLAUDE.md.
+ *
+ * Idempotent: the rule file is refreshed each run, and the import line is
+ * inserted only if not already present.
+ */
+export async function wireRtkInstructions(targetAbs: string): Promise<StepResult> {
+  const name = 'rtk instructions';
+  if (!(await binExists('rtk'))) return { name, status: 'skipped', detail: 'rtk not on PATH' };
+
+  const ruleRel = '.claude/rules/rtk-instructions.md';
+  const rulePath = path.join(targetAbs, ...ruleRel.split('/'));
+  await fs.mkdir(path.dirname(rulePath), { recursive: true });
+  await fs.writeFile(rulePath, RTK_INSTRUCTIONS_MARKDOWN, 'utf8');
+
+  const claudeMd = path.join(targetAbs, 'CLAUDE.md');
+  const source = await readIfExists(claudeMd);
+  if (source === null) {
+    return { name, status: 'ok', detail: `wrote ${ruleRel} (no CLAUDE.md to reference it)` };
+  }
+
+  const importLine = `@${ruleRel}`;
+  if (source.includes(importLine)) {
+    return { name, status: 'skipped', detail: 'already referenced' };
+  }
+
+  await fs.writeFile(claudeMd, insertRuleImport(source, importLine), 'utf8');
+  return { name, status: 'ok', detail: `→ ${ruleRel}` };
+}
+
+/**
+ * Inserts `importLine` immediately after the last existing `@.claude/rules/*.md`
+ * import so RTK sits with the contract rules. Falls back to appending a small
+ * section when CLAUDE.md has no rule-import block.
+ */
+function insertRuleImport(source: string, importLine: string): string {
+  const lines = source.split('\n');
+  const isRuleImport = (l: string): boolean => /^@\.claude\/rules\/.+\.md\s*$/.test(l);
+  let lastIdx = -1;
+  for (let i = 0; i < lines.length; i++) if (isRuleImport(lines[i])) lastIdx = i;
+
+  if (lastIdx >= 0) {
+    lines.splice(lastIdx + 1, 0, importLine);
+    return lines.join('\n');
+  }
+
+  const suffix = source.endsWith('\n') ? '' : '\n';
+  return `${source}${suffix}\n## RTK (optional tool — wired by ccsk init)\n\n${importLine}\n`;
+}
+
+/** Reads a file as UTF-8, returning `null` if it does not exist. */
+async function readIfExists(p: string): Promise<string | null> {
+  try {
+    return await fs.readFile(p, 'utf8');
+  } catch {
+    return null;
+  }
 }

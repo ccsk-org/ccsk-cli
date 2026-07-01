@@ -25,6 +25,7 @@ import { ensureAdd } from '../core/add.js';
 import { runDesignSetup } from './design.js';
 import { printBanner } from '../util/banner.js';
 import { ensureCcskGitignoreBlock } from '../util/gitignore-sync.js';
+import { printInstallSummary } from '../util/install-summary.js';
 import { log, pc } from '../util/log.js';
 
 const BANNER_META = {
@@ -158,6 +159,10 @@ export async function runInit(opts: InitOptions): Promise<void> {
       log.dim('    Install Claude Code, then re-run `ccsk init` to add the plugin.');
     }
   }
+
+  // 6c. Show the installed roster (agents/skills/commands/rules).
+  log.info('');
+  printInstallSummary({ srcDir: fetchResult.cachePath, files: written.files });
 
   // 7. Optional ADD installation
   let addInstalled = false;

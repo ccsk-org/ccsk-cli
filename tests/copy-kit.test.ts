@@ -198,6 +198,18 @@ describe('copyKit', () => {
 
     expect(topLevel).toEqual(['.claude', 'CLAUDE.md', 'docs']);
   });
+
+  it('returns every shipped destination path (renamed, sorted)', async () => {
+    await write(srcDir, '_dot_claude/rules/common.md');
+    await write(srcDir, 'CLAUDE.md');
+    await write(srcDir, 'docs/x.md');
+
+    const { files } = await copyKit(srcDir, targetDir);
+
+    expect(files).toEqual(
+      ['CLAUDE.md', path.join('.claude', 'rules', 'common.md'), path.join('docs', 'x.md')].sort(),
+    );
+  });
 });
 
 describe('findConflicts', () => {
