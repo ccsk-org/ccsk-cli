@@ -75,19 +75,21 @@ program
   .command('update')
   .description('Update ccsk CLI, re-materialize templates, and update the ccsk plugin')
   .argument('[version]', 'CLI version to install (e.g. latest, 1.0.2)', 'latest')
-  .option('--path <dir>', 'project directory to re-materialize templates into', '.')
+  .option('--path <dir>', 'project directory to re-materialize templates into (bypasses the ccsk-project guard)')
   .option('--kit-version <ver>', 'kit version to materialize (defaults to latest)')
   .option('--plugin-scope <scope>', 'plugin install scope: project | user', 'project')
   .option('--pre', 'opt into prereleases — move to the newest prerelease', false)
+  .option('--force', 'materialize the kit even if the current dir is not a ccsk project', false)
   .option('--no-templates', 'skip re-materializing kit templates')
   .option('--no-plugin', 'skip updating the ccsk Claude Code plugin')
   .action(async (version: string, opts) => {
     await guard(() =>
       runUpdate({
         version,
-        targetPath: opts.path ?? '.',
+        targetPath: opts.path,
         kitVersion: opts.kitVersion,
         pre: !!opts.pre,
+        force: !!opts.force,
         templates: opts.templates !== false,
         plugin: opts.plugin !== false,
         pluginScope: opts.pluginScope === 'user' ? 'user' : 'project',

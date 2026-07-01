@@ -9,6 +9,7 @@
  */
 
 import path from 'node:path';
+import { statSync } from 'node:fs';
 import { runSelfUpdate } from '../core/self-update.js';
 import { detectAuthMethod } from '../core/github-auth.js';
 import {
@@ -40,6 +41,8 @@ export interface UpdateOptions {
   pluginScope?: PluginScope;
   /** Opt into prereleases — move to the newest prerelease. */
   pre?: boolean;
+  /** Force kit materialization even when the target is not a ccsk project. */
+  force?: boolean;
 }
 
 export async function runUpdate(opts: UpdateOptions): Promise<void> {
@@ -56,6 +59,21 @@ export async function runUpdate(opts: UpdateOptions): Promise<void> {
 
   if (wantTemplates || wantPlugin) {
     const targetAbs = path.resolve(process.cwd(), opts.targetPath ?? '.');
+
+    // Guard: `ccsk update` must NOT dump kit files into an arbitrary directory.
+    // Materialize only when the target is already a ccsk project, or the user
+    // opted in explicitly — either `--force`, or by naming a target `--path`
+    // (an explicit path signals deliberate intent to install there).
+    const optedIn = opts.force === true || opts.targetPath !== undefined;
+    if (!optedIn && !isCcskProject(targetAbs)) {
+      results.push({
+        name: 'kit',
+        status: 'skipped',
+        detail: 'not a ccsk project — run `ccsk init`, or `ccsk update --force` to install here',
+      });
+      printSummary(results);
+      return;
+    }
 
     // Fetch the kit once so templates + plugin pin to ONE resolved version.
     const auth = await detectAuthMethod();
@@ -166,6 +184,25 @@ async function resolveKitTarget(opts: UpdateOptions): Promise<string | undefined
 function isMaterializedProject(targetAbs: string): boolean {
   const skillsDir = path.join(targetAbs, '.claude', 'skills');
   return readDirSafe(skillsDir).some((e) => e.isDirectory() && e.name.startsWith('ccsk-'));
+}
+
+/**
+ * True if `targetAbs` looks like an already-initialized ccsk project. `ccsk init`
+ * always scaffolds a `.ccsk/` dir (both delivery modes), so its presence is the
+ * primary signal; a materialized `.claude/skills/ccsk-*` is the fallback for the
+ * case where `.ccsk/` was removed but agents/skills remain.
+ */
+function isCcskProject(targetAbs: string): boolean {
+  return isDir(path.join(targetAbs, '.ccsk')) || isMaterializedProject(targetAbs);
+}
+
+/** True only if `p` exists AND is a directory (a file named `.ccsk` must not count). */
+function isDir(p: string): boolean {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /** Runs a step, converting throws into a `failed` StepResult (never aborts). */

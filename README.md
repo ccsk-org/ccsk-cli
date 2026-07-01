@@ -113,7 +113,7 @@ ccsk init --version 2.0.0-beta-01   # an exact version (a leading v is fine too)
 | `ccsk init [path]` | Install the kit (picker + plugin + materialize) | `--version <v>` · `--pre` · `--force` · `--no-plugin` · `--plugin-scope <project\|user>` · `--no-setup` · `--no-add` · `-y, --yes` |
 | `ccsk versions` | List available + cached + current kit versions | `--all` · `--pre` · `--json` |
 | `ccsk auth` | Check GitHub auth (kit repo is private) | — |
-| `ccsk update [version]` | Update **CLI + kit templates + plugin** together | `--path <dir>` · `--kit-version <v>` · `--pre` · `--plugin-scope <…>` · `--no-templates` · `--no-plugin` |
+| `ccsk update [version]` | Update **CLI + kit templates + plugin** together | `--path <dir>` · `--force` · `--kit-version <v>` · `--pre` · `--plugin-scope <…>` · `--no-templates` · `--no-plugin` |
 | `ccsk cache` | Manage cached kit versions (annotates current/(beta)/cached) | `-l, --list` · `--version <v>` · `--clear` · `--clear-all` |
 | `ccsk uninstall [path]` | Remove the kit (preserves memory by default) | `--purge-memory` (backs up to `.ccsk.bak-<ts>/` first) · `-y, --yes` |
 | `ccsk doctor` | Diagnose Node / git / auth / cache | — |
@@ -129,7 +129,7 @@ ccsk update --no-plugin                  # refresh CLI + templates, leave the pl
 ccsk uninstall --purge-memory            # remove everything (memory backed up first)
 ```
 
-`update` is a three-layer, non-aborting operation: it self-updates the CLI, re-materializes the kit templates (preserving your memory), and runs `claude plugin update ccsk` — all pinned to one resolved version so the plugin and templates never drift.
+`update` is a three-layer, non-aborting operation: it self-updates the CLI, re-materializes the kit templates (preserving your memory), and runs `claude plugin update ccsk` — all pinned to one resolved version so the plugin and templates never drift. The **CLI self-update always runs**, but the kit layers (templates + plugin) are materialized **only in an existing ccsk project** (a dir with `.ccsk/` or materialized `.claude/skills/ccsk-*`) — so running `ccsk update` in an unrelated directory won't scatter kit files there. To install into a fresh dir anyway, name it with `--path <dir>` or pass `--force`.
 
 ---
 
