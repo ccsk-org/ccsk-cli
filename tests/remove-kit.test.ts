@@ -60,10 +60,10 @@ describe('existingKitPaths / existingUserMemoryPaths', () => {
   it('separates user-memory paths from scaffold', async () => {
     await seedFullKit();
     const memory = await existingUserMemoryPaths(targetDir);
-    expect(memory).toContain('.ccsk/MEMORY.md');
-    expect(memory).toContain('.ccsk/plans');
-    expect(memory).toContain('.ccsk/journals');
-    expect(memory).not.toContain('.ccsk/templates');
+    expect(memory).toContain(path.join('.ccsk', 'MEMORY.md'));
+    expect(memory).toContain(path.join('.ccsk', 'plans'));
+    expect(memory).toContain(path.join('.ccsk', 'journals'));
+    expect(memory).not.toContain(path.join('.ccsk', 'templates'));
   });
 });
 
@@ -85,8 +85,8 @@ describe('removeKit — default (preserve user memory)', () => {
     expect(await exists('.ccsk/plans/250101-foo/01-PLAN.md')).toBe(true);
     expect(await exists('.ccsk/journals/j.md')).toBe(true);
 
-    expect(result.preserved).toContain('.ccsk/MEMORY.md');
-    expect(result.preserved).toContain('.ccsk/plans');
+    expect(result.preserved).toContain(path.join('.ccsk', 'MEMORY.md'));
+    expect(result.preserved).toContain(path.join('.ccsk', 'plans'));
     expect(result.backupDir).toBeUndefined();
   });
 
